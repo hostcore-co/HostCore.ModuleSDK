@@ -10,6 +10,7 @@ Go program compiled to a WASM reactor, a prebuilt `.wasm`, and a README.
 | [`cpanel`](cpanel) | [cPanel & WHM](https://cpanel.net) web hosting | Account provisioning via WHM API 1; username derivation. |
 | [`plesk`](plesk) | [Plesk](https://www.plesk.com) web hosting | Subscription provisioning via the REST API v2 CLI gateway. |
 | [`virtfusion`](virtfusion) | [VirtFusion](https://virtfusion.com) VPS/KVM panel | VPS provisioning via API v1; server-id round-trip; byExtRelation users. |
+| [`virtualizor`](virtualizor) | [Virtualizor](https://www.virtualizor.com) VPS panel | VPS provisioning via the Admin API (act-based single endpoint). |
 
 All modules export the same lifecycle surface — `TestModuleConnection`,
 `GetServiceConfigOptions`, `DeployService`, `SuspendService`,

@@ -41,6 +41,7 @@ func main() {
 		{"cpanel", "../modules/cpanel/cpanel.wasm", runCpanel},
 		{"plesk", "../modules/plesk/plesk.wasm", runPlesk},
 		{"virtfusion", "../modules/virtfusion/virtfusion.wasm", runVirtfusion},
+		{"virtualizor", "../modules/virtualizor/virtualizor.wasm", runVirtualizor},
 	}
 
 	for _, s := range suites {
