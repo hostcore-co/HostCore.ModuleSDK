@@ -48,6 +48,38 @@ func (j *JSON) Build() []byte {
 	return b
 }
 
+// JSONInt64Array encodes a slice of int64 values as a JSON array of numbers,
+// e.g. []int64{7, 12} → [7,12]. An empty slice encodes as [].
+//
+// Useful for Pterodactyl allocation lists such as add_allocations.
+func JSONInt64Array(items []int64) []byte {
+	b := make([]byte, 0, len(items)*4+2)
+	b = append(b, '[')
+	for i, v := range items {
+		if i > 0 {
+			b = append(b, ',')
+		}
+		b = append(b, Itoa64(v)...)
+	}
+	b = append(b, ']')
+	return b
+}
+
+// JSONStringArray encodes a slice of strings as a JSON array of strings,
+// e.g. []string{"25565-25669"} → ["25565-25669"]. Each element is escaped.
+func JSONStringArray(items []string) []byte {
+	b := make([]byte, 0, 16)
+	b = append(b, '[')
+	for i, v := range items {
+		if i > 0 {
+			b = append(b, ',')
+		}
+		b = append(b, JsonString(v)...)
+	}
+	b = append(b, ']')
+	return b
+}
+
 // encodeValue converts a Go value to its JSON bytes representation.
 func encodeValue(v interface{}) []byte {
 	switch val := v.(type) {

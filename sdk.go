@@ -225,14 +225,20 @@ func ParsePortRange(s string) (int, int, bool) {
 
 func TrimSpace(s string) string {
 	start := 0
-	for start < len(s) && (s[start] == ' ' || s[start] == '\t') {
+	for start < len(s) && isSpace(s[start]) {
 		start++
 	}
 	end := len(s)
-	for end > start && (s[end-1] == ' ' || s[end-1] == '\t') {
+	for end > start && isSpace(s[end-1]) {
 		end--
 	}
 	return s[start:end]
+}
+
+// isSpace reports whether c is an ASCII whitespace byte (space, tab, newline,
+// carriage return, vertical tab or form feed).
+func isSpace(c byte) bool {
+	return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\v' || c == '\f'
 }
 
 const letters = "abcdefghijklmnopqrstuvwxyz0123456789"
