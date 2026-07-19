@@ -49,8 +49,10 @@ func main() {}
 // Exported lifecycle functions
 // -----------------------------------------------------------------------------
 
-// TestModuleConnection verifies the store's connection to the Pterodactyl
-// panel and that the supplied application key is valid.
+// TestModuleConnection verifies that the panel is reachable and the supplied
+// application key authenticates. It requests a lightweight, non-sensitive
+// endpoint purely to exercise the credentials; the response payload is not
+// inspected.
 //
 //go:wasmexport TestModuleConnection
 func TestModuleConnection() int32 {
@@ -65,15 +67,7 @@ func TestModuleConnection() int32 {
 		return sdk.Fail("Connection failed with status "+sdk.Itoa(resp.Status)+".", resp.Body)
 	}
 
-	nodes := sdk.GetBytes(resp.Body, "meta.pagination.total").Int()
-	if nodes == 0 {
-		return sdk.Fail("Authenticated successfully, but the panel has no nodes configured.", resp.Body)
-	}
-
-	return sdk.Success(sdk.NewJSON().
-		Set("status", resp.Status).
-		Set("nodes", nodes).
-		Build())
+	return sdk.Success(sdk.NewJSON().Set("status", resp.Status).Build())
 }
 
 // GetServiceConfigOptions returns the schema of configurable fields for this
