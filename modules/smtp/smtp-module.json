@@ -1,0 +1,89 @@
+{
+  "name": "SMTP",
+  "author": "HostCore",
+  "description": "Official SMTP email module for sending transactional email",
+  "documentation_url": "https://docs.hostcore.co/modules/smtp",
+  "official": true,
+  "type": "email_module",
+  "versions": [
+    {
+      "tag": "1.0",
+      "target_api": "SMTP",
+      "digest": "",
+      "config_schema": [
+        {
+          "order": 1,
+          "type": "string",
+          "label": "SMTP Host",
+          "description": "Hostname of the SMTP server (eg. smtp.domain.com)",
+          "regex": "^(?!https?://)[a-z0-9]+(?:\\.[a-z0-9-]+)*\\.[a-z]{2,}$",
+          "required": true,
+          "key": "host"
+        },
+        {
+          "order": 2,
+          "type": "number",
+          "label": "SMTP Port",
+          "description": "Port of the SMTP server (default: 587)",
+          "regex": "^[0-9]+$",
+          "required": false,
+          "key": "port"
+        },
+        {
+          "order": 3,
+          "type": "string",
+          "label": "Username",
+          "description": "SMTP authentication username",
+          "regex": "",
+          "required": true,
+          "key": "username"
+        },
+        {
+          "order": 4,
+          "type": "secret",
+          "label": "Password",
+          "description": "SMTP authentication password",
+          "regex": "",
+          "required": true,
+          "key": "password"
+        },
+        {
+          "order": 5,
+          "type": "string",
+          "label": "Encryption",
+          "description": "Transport encryption: tls, ssl, starttls or none (default: tls)",
+          "regex": "^(tls|ssl|starttls|none)$",
+          "required": false,
+          "key": "encryption"
+        },
+        {
+          "order": 6,
+          "type": "string",
+          "label": "From Email",
+          "description": "Address messages are sent from",
+          "regex": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+          "required": true,
+          "key": "from_email"
+        },
+        {
+          "order": 7,
+          "type": "string",
+          "label": "From Name",
+          "description": "Display name messages are sent from",
+          "regex": "",
+          "required": false,
+          "key": "from_name"
+        }
+      ],
+      "created_at": {
+        "$date": "2026-07-19T00:00:00.000Z"
+      }
+    }
+  ],
+  "created_at": {
+    "$date": "2026-07-19T00:00:00.000Z"
+  },
+  "updated_at": {
+    "$date": "2026-07-19T00:00:00.000Z"
+  }
+}

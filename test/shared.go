@@ -42,6 +42,7 @@ func main() {
 		{"plesk", "../modules/plesk/plesk.wasm", runPlesk},
 		{"virtfusion", "../modules/virtfusion/virtfusion.wasm", runVirtfusion},
 		{"virtualizor", "../modules/virtualizor/virtualizor.wasm", runVirtualizor},
+		{"smtp", "../modules/smtp/smtp.wasm", runSMTP},
 	}
 
 	for _, s := range suites {
@@ -99,8 +100,34 @@ func hostFns(route router) []extism.HostFunction {
 			[]extism.ValueType{extism.ValueTypePTR},
 			[]extism.ValueType{extism.ValueTypePTR})
 	}
-	return []extism.HostFunction{fn("GET"), fn("POST"), fn("PUT"), fn("PATCH"), fn("DELETE")}
+	// smtp_send is the email-module host function. It is provided to every
+	// plugin (unused ones ignore it) and records the outbound message so the
+	// SMTP suite can assert on it.
+	smtp := extism.NewHostFunctionWithStack("smtp_send",
+		func(ctx context.Context, plugin *extism.CurrentPlugin, stack []uint64) {
+			in, _ := plugin.ReadBytes(stack[0])
+			var msg map[string]any
+			_ = json.Unmarshal(in, &msg)
+			smtpInbox = append(smtpInbox, msg)
+			out := `{"ok":true}`
+			if smtpReject != "" {
+				out = fmt.Sprintf(`{"ok":false,"error":%q}`, smtpReject)
+			}
+			off, _ := plugin.WriteBytes([]byte(out))
+			stack[0] = off
+		},
+		[]extism.ValueType{extism.ValueTypePTR},
+		[]extism.ValueType{extism.ValueTypePTR})
+
+	return []extism.HostFunction{fn("GET"), fn("POST"), fn("PUT"), fn("PATCH"), fn("DELETE"), smtp}
 }
+
+// smtpInbox collects messages sent through the mock smtp_send host function;
+// smtpReject, when non-empty, makes the next sends fail with that reason.
+var (
+	smtpInbox  []map[string]any
+	smtpReject string
+)
 
 func buildResp(status int, body string) string {
 	ok := status >= 200 && status < 300

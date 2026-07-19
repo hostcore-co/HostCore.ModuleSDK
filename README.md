@@ -98,12 +98,19 @@ multi-port allocation behaviour.
 ## Example modules
 
 Each module lives in its own directory under [`modules/`](modules) with its
-source, a prebuilt `.wasm`, and a README describing its contract:
+source, a prebuilt `.wasm`, a `<name>-module.json` registry document, and a
+README describing its contract:
 
 | Module | External application |
 | --- | --- |
-| [`modules/pterodactyl`](modules/pterodactyl) | Pterodactyl game panel (intelligent multi-port allocation) |
+| [`modules/pterodactyl`](modules/pterodactyl) | Pterodactyl game panel (client-side multi-port allocation) |
 | [`modules/wisp`](modules/wisp) | WISP game panel (panel-side additional-port allocation) |
+| [`modules/cpanel`](modules/cpanel) | cPanel & WHM web hosting (WHM API 1) |
+| [`modules/plesk`](modules/plesk) | Plesk web hosting (REST API v2 CLI gateway) |
+| [`modules/virtfusion`](modules/virtfusion) | VirtFusion VPS panel (API v1) |
+| [`modules/virtualizor`](modules/virtualizor) | Virtualizor VPS panel (Admin API) |
+| [`modules/smtp`](modules/smtp) | SMTP email — sends mail via the `smtp_send` host function |
 
 They are production-grade references for community module authors: study one,
-copy its shape, and swap in the target application's API.
+copy its shape, and swap in the target application's API. See
+[`modules/README.md`](modules/README.md) for the index.

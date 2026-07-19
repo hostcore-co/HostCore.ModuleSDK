@@ -11,11 +11,16 @@ Go program compiled to a WASM reactor, a prebuilt `.wasm`, and a README.
 | [`plesk`](plesk) | [Plesk](https://www.plesk.com) web hosting | Subscription provisioning via the REST API v2 CLI gateway. |
 | [`virtfusion`](virtfusion) | [VirtFusion](https://virtfusion.com) VPS/KVM panel | VPS provisioning via API v1; server-id round-trip; byExtRelation users. |
 | [`virtualizor`](virtualizor) | [Virtualizor](https://www.virtualizor.com) VPS panel | VPS provisioning via the Admin API (act-based single endpoint). |
+| [`smtp`](smtp) | SMTP email | Email module — sends mail via the `smtp_send` host function. |
 
-All modules export the same lifecycle surface — `TestModuleConnection`,
-`GetServiceConfigOptions`, `DeployService`, `SuspendService`,
-`UnsuspendService`, `UpdateService`, `TerminateService`, `ChangePassword` — and
-import only the [HostCore.ModuleSDK](..).
+The **service** modules export the same lifecycle surface —
+`TestModuleConnection`, `GetServiceConfigOptions`, `DeployService`,
+`SuspendService`, `UnsuspendService`, `UpdateService`, `TerminateService`,
+`ChangePassword` (where the target supports it). The **email** module (`smtp`)
+exports `SendEmail`. All import only the [HostCore.ModuleSDK](..).
+
+Each module directory also carries a `<name>-module.json` — the MongoDB module
+document (metadata plus the binding's connection config schema).
 
 ## Build
 

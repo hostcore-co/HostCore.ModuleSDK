@@ -1,0 +1,44 @@
+{
+  "name": "VirtFusion",
+  "author": "HostCore",
+  "description": "Official module for the VirtFusion VPS panel",
+  "documentation_url": "https://docs.hostcore.co/modules/virtfusion",
+  "official": true,
+  "type": "service_module",
+  "versions": [
+    {
+      "tag": "1.0",
+      "target_api": "VirtFusion API v1",
+      "digest": "",
+      "config_schema": [
+        {
+          "order": 1,
+          "type": "string",
+          "label": "Panel Hostname",
+          "description": "Your VirtFusion panel's hostname (eg. vf.domain.com)",
+          "regex": "^(?!https?://)[a-z0-9]+(?:\\.[a-z0-9-]+)*\\.[a-z]{2,}$",
+          "required": true,
+          "key": "domain"
+        },
+        {
+          "order": 2,
+          "type": "secret",
+          "label": "API Token",
+          "description": "A VirtFusion API token",
+          "regex": "",
+          "required": true,
+          "key": "api_key"
+        }
+      ],
+      "created_at": {
+        "$date": "2026-07-19T00:00:00.000Z"
+      }
+    }
+  ],
+  "created_at": {
+    "$date": "2026-07-19T00:00:00.000Z"
+  },
+  "updated_at": {
+    "$date": "2026-07-19T00:00:00.000Z"
+  }
+}
