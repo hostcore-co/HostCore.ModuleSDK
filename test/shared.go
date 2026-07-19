@@ -43,6 +43,8 @@ func main() {
 		{"virtfusion", "../modules/virtfusion/virtfusion.wasm", runVirtfusion},
 		{"virtualizor", "../modules/virtualizor/virtualizor.wasm", runVirtualizor},
 		{"smtp", "../modules/smtp/smtp.wasm", runSMTP},
+		{"sendgrid", "../modules/sendgrid/sendgrid.wasm", runSendgrid},
+		{"postmark", "../modules/postmark/postmark.wasm", runPostmark},
 	}
 
 	for _, s := range suites {

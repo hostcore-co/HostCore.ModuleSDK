@@ -110,6 +110,8 @@ README describing its contract:
 | [`modules/virtfusion`](modules/virtfusion) | VirtFusion VPS panel (API v1) |
 | [`modules/virtualizor`](modules/virtualizor) | Virtualizor VPS panel (Admin API) |
 | [`modules/smtp`](modules/smtp) | SMTP email — sends mail via the `smtp_send` host function |
+| [`modules/sendgrid`](modules/sendgrid) | SendGrid email — sends via the SendGrid v3 HTTP API |
+| [`modules/postmark`](modules/postmark) | Postmark email — sends via the Postmark HTTP API |
 
 They are production-grade references for community module authors: study one,
 copy its shape, and swap in the target application's API. See

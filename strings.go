@@ -42,6 +42,31 @@ func EqualFold(a, b string) bool {
 	return true
 }
 
+// StringList normalises a value that may be either a single string or a JSON
+// array of strings into a trimmed, de-duplicated slice. It is convenient for
+// address fields (to, cc, …) that accept one or many recipients.
+//
+//	to := sdk.StringList(args.Get("to"))
+func StringList(r Result) []string {
+	var out []string
+	seen := map[string]bool{}
+	add := func(s string) {
+		s = TrimSpace(s)
+		if s != "" && !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	if r.IsArray() {
+		for _, item := range r.Array() {
+			add(item.String())
+		}
+	} else {
+		add(r.String())
+	}
+	return out
+}
+
 // SplitCSV splits a comma-separated string, trimming whitespace from each
 // element and dropping empties. It returns nil for an all-empty input.
 //

@@ -12,6 +12,8 @@ Go program compiled to a WASM reactor, a prebuilt `.wasm`, and a README.
 | [`virtfusion`](virtfusion) | [VirtFusion](https://virtfusion.com) VPS/KVM panel | VPS provisioning via API v1; server-id round-trip; byExtRelation users. |
 | [`virtualizor`](virtualizor) | [Virtualizor](https://www.virtualizor.com) VPS panel | VPS provisioning via the Admin API (act-based single endpoint). |
 | [`smtp`](smtp) | SMTP email | Email module — sends mail via the `smtp_send` host function. |
+| [`sendgrid`](sendgrid) | SendGrid email | Email module — sends via the SendGrid v3 HTTP API. |
+| [`postmark`](postmark) | Postmark email | Email module — sends via the Postmark HTTP API. |
 
 The **service** modules export the same lifecycle surface —
 `TestModuleConnection`, `GetServiceConfigOptions`, `DeployService`,

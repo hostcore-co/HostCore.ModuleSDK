@@ -50,7 +50,7 @@ func SendEmail() int32 {
 		return sdk.Fail("host is required.", nil)
 	}
 
-	to := addresses(args, "to")
+	to := sdk.StringList(args.Get("to"))
 	if len(to) == 0 {
 		return sdk.Fail("at least one recipient (to) is required.", nil)
 	}
@@ -84,7 +84,7 @@ func SendEmail() int32 {
 		Set("html", html).
 		Set("text", text)
 
-	if cc := addresses(args, "cc"); len(cc) > 0 {
+	if cc := sdk.StringList(args.Get("cc")); len(cc) > 0 {
 		msg.Set("cc", sdk.JSONStringArray(cc))
 	}
 	if replyTo := sdk.TrimSpace(args.Get("reply_to").String()); replyTo != "" {
@@ -120,28 +120,4 @@ func GetServiceConfigOptions() int32 {
 		{"order":6,"label":"From Email","type":"string","key":"from_email","description":"Address messages are sent from.","regex":"^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$","required":true},
 		{"order":7,"label":"From Name","type":"string","key":"from_name","description":"Display name messages are sent from.","regex":"","required":false}
 	]`))
-}
-
-// addresses reads an address field that may be either a single string or an
-// array of strings, returning a de-duplicated, non-empty list.
-func addresses(args sdk.Args, key string) []string {
-	var out []string
-	seen := map[string]bool{}
-	add := func(s string) {
-		s = sdk.TrimSpace(s)
-		if s != "" && !seen[s] {
-			seen[s] = true
-			out = append(out, s)
-		}
-	}
-
-	field := args.Get(key)
-	if field.IsArray() {
-		for _, item := range field.Array() {
-			add(item.String())
-		}
-	} else {
-		add(field.String())
-	}
-	return out
 }
