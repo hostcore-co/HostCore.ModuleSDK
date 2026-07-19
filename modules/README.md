@@ -8,6 +8,7 @@ Go program compiled to a WASM reactor, a prebuilt `.wasm`, and a README.
 | [`pterodactyl`](pterodactyl) | [Pterodactyl](https://pterodactyl.io) game panel | Client-side intelligent multi-port allocation (SERVER_PORT + additional ports on one IP). |
 | [`wisp`](wisp) | [WISP](https://wisp.gg) game panel | Panel-side additional-port allocation; ULID-safe ids; server templates. |
 | [`cpanel`](cpanel) | [cPanel & WHM](https://cpanel.net) web hosting | Account provisioning via WHM API 1; username derivation. |
+| [`plesk`](plesk) | [Plesk](https://www.plesk.com) web hosting | Subscription provisioning via the REST API v2 CLI gateway. |
 
 All modules export the same lifecycle surface — `TestModuleConnection`,
 `GetServiceConfigOptions`, `DeployService`, `SuspendService`,

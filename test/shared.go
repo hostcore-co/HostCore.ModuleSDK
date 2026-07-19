@@ -39,6 +39,7 @@ func main() {
 		{"pterodactyl", "../modules/pterodactyl/pterodactyl.wasm", runPtero},
 		{"wisp", "../modules/wisp/wisp.wasm", runWisp},
 		{"cpanel", "../modules/cpanel/cpanel.wasm", runCpanel},
+		{"plesk", "../modules/plesk/plesk.wasm", runPlesk},
 	}
 
 	for _, s := range suites {
