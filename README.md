@@ -74,7 +74,7 @@ Return through `sdk.Success(data)` (exit 0) or `sdk.Fail(message, data)`
 ## Building
 
 ```sh
-make build          # → modules/pterodactyl.wasm
+make build          # compiles every module under modules/* → modules/<name>/<name>.wasm
 ```
 
 `scripts/build.sh` prefers **TinyGo** (smallest output) and transparently falls
@@ -95,9 +95,15 @@ as the Engine, but routes HTTP to an in-memory mock Pterodactyl panel. It drives
 deploy / suspend / update / terminate end-to-end and asserts on the intelligent
 multi-port allocation behaviour.
 
-## Example module
+## Example modules
 
-[`modules/pterodactyl.go`](modules/pterodactyl.go) is a production-grade
-reference module that manages game/application servers on a Pterodactyl panel.
-See [`modules/README.md`](modules/README.md) for its full contract, configuration
-options and provisioning flow.
+Each module lives in its own directory under [`modules/`](modules) with its
+source, a prebuilt `.wasm`, and a README describing its contract:
+
+| Module | External application |
+| --- | --- |
+| [`modules/pterodactyl`](modules/pterodactyl) | Pterodactyl game panel (intelligent multi-port allocation) |
+| [`modules/wisp`](modules/wisp) | WISP game panel (panel-side additional-port allocation) |
+
+They are production-grade references for community module authors: study one,
+copy its shape, and swap in the target application's API.

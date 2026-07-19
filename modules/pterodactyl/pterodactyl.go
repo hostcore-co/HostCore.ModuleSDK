@@ -436,12 +436,12 @@ func (p panel) getOrCreateUser(u sdk.User, password string) (int64, string) {
 	}
 
 	if u.Email != "" {
-		search := p.get("users?filter[email]=" + urlEncode(u.Email))
+		search := p.get("users?filter[email]=" + sdk.URLEncode(u.Email))
 		if search.OK {
 			var matched sdk.Result
 			var found bool
 			sdk.GetBytes(search.Body, "data").ForEach(func(_, item sdk.Result) bool {
-				if equalFold(item.Get("attributes.email").String(), u.Email) {
+				if sdk.EqualFold(item.Get("attributes.email").String(), u.Email) {
 					matched = item
 					found = true
 					return false
@@ -1002,7 +1002,7 @@ func buildCreatePayload(c createParams) []byte {
 	deploy := sdk.NewJSON().
 		Set("locations", sdk.JSONInt64Array([]int64{sdk.Atoi64(c.locationID)})).
 		Set("dedicated_ip", c.dedicated).
-		Set("port_range", sdk.JSONStringArray(splitCSV(c.portRange))).
+		Set("port_range", sdk.JSONStringArray(sdk.SplitCSV(c.portRange))).
 		Build()
 
 	return sdk.NewJSON().
@@ -1168,23 +1168,6 @@ func parseExtraAllocation(s string) (string, int) {
 	return s, 1
 }
 
-// splitCSV splits a comma-separated list, trimming each element and dropping
-// empties. Used for the deploy port_range which may list multiple ranges.
-func splitCSV(s string) []string {
-	var out []string
-	start := 0
-	for i := 0; i <= len(s); i++ {
-		if i == len(s) || s[i] == ',' {
-			part := sdk.TrimSpace(s[start:i])
-			if part != "" {
-				out = append(out, part)
-			}
-			start = i + 1
-		}
-	}
-	return out
-}
-
 // joinVarNames renders a comma-separated list of variable names for error
 // messages.
 func joinVarNames(vars []portVar) string {
@@ -1196,44 +1179,6 @@ func joinVarNames(vars []portVar) string {
 		out += v.name
 	}
 	return out
-}
-
-// urlEncode percent-encodes a query-parameter value. Kept minimal (no net/url)
-// so the compiled module stays small; it encodes everything outside the
-// RFC 3986 unreserved set.
-func urlEncode(s string) string {
-	const upperhex = "0123456789ABCDEF"
-	var b []byte
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
-			c == '-' || c == '_' || c == '.' || c == '~' {
-			b = append(b, c)
-			continue
-		}
-		b = append(b, '%', upperhex[c>>4], upperhex[c&0x0f])
-	}
-	return string(b)
-}
-
-// equalFold reports whether a and b are equal under ASCII case-folding.
-func equalFold(a, b string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := 0; i < len(a); i++ {
-		ca, cb := a[i], b[i]
-		if 'A' <= ca && ca <= 'Z' {
-			ca += 'a' - 'A'
-		}
-		if 'A' <= cb && cb <= 'Z' {
-			cb += 'a' - 'A'
-		}
-		if ca != cb {
-			return false
-		}
-	}
-	return true
 }
 
 func lowerUnit(s string) string {
