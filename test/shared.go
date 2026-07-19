@@ -40,6 +40,7 @@ func main() {
 		{"wisp", "../modules/wisp/wisp.wasm", runWisp},
 		{"cpanel", "../modules/cpanel/cpanel.wasm", runCpanel},
 		{"plesk", "../modules/plesk/plesk.wasm", runPlesk},
+		{"virtfusion", "../modules/virtfusion/virtfusion.wasm", runVirtfusion},
 	}
 
 	for _, s := range suites {
