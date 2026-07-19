@@ -38,6 +38,7 @@ func main() {
 	suites := []suite{
 		{"pterodactyl", "../modules/pterodactyl/pterodactyl.wasm", runPtero},
 		{"wisp", "../modules/wisp/wisp.wasm", runWisp},
+		{"cpanel", "../modules/cpanel/cpanel.wasm", runCpanel},
 	}
 
 	for _, s := range suites {

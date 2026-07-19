@@ -118,10 +118,18 @@ func parseHTTPResponse(data []byte) HTTPResponse {
 	resp.Status = extractIntField(data, "status")
 	resp.OK = extractBoolField(data, "ok")
 
-	// Extract "body" field — it's a nested JSON value
+	// Extract the "body" field — a nested JSON value that is the last field of
+	// the wrapper object, so it runs from bodyStart to the wrapper's closing
+	// brace. That final brace must be dropped: leaving it in place produces
+	// invalid JSON when a module embeds Body into its own result via
+	// Success/Fail.
 	bodyStart := findField(data, `"body":`)
 	if bodyStart >= 0 {
-		resp.Body = data[bodyStart:]
+		end := len(data)
+		if end > bodyStart && data[end-1] == '}' {
+			end--
+		}
+		resp.Body = data[bodyStart:end]
 	}
 
 	return resp
