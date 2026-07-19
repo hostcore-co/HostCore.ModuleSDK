@@ -53,7 +53,7 @@ func (j *JSON) Build() []byte {
 //
 // Useful for Pterodactyl allocation lists such as add_allocations.
 func JSONInt64Array(items []int64) []byte {
-	b := make([]byte, 0, len(items)*4+2)
+	b := make([]byte, 0)
 	b = append(b, '[')
 	for i, v := range items {
 		if i > 0 {
@@ -68,7 +68,7 @@ func JSONInt64Array(items []int64) []byte {
 // JSONStringArray encodes a slice of strings as a JSON array of strings,
 // e.g. []string{"25565-25669"} → ["25565-25669"]. Each element is escaped.
 func JSONStringArray(items []string) []byte {
-	b := make([]byte, 0, 16)
+	b := make([]byte, 0)
 	b = append(b, '[')
 	for i, v := range items {
 		if i > 0 {

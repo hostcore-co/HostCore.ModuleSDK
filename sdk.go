@@ -136,7 +136,7 @@ func buildResult(success bool, errMsg string, data []byte) []byte {
 
 // JsonString wraps a plain string in JSON quotes and escapes special characters.
 func JsonString(s string) []byte {
-	b := make([]byte, 0, len(s)+2)
+	b := make([]byte, 0)
 	b = append(b, '"')
 	for i := 0; i < len(s); i++ {
 		c := s[i]

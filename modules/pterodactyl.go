@@ -127,18 +127,15 @@ func DeployService() int32 {
 
 	externalID := serviceID(args)
 
-	// Refuse to deploy twice over the same service id.
 	if existing := p.get("servers/external/" + externalID); existing.Status == 200 {
 		return sdk.Fail("A server already exists for this service.", nil)
 	}
 
-	// 1. Resolve (or create) the panel user for this client.
 	userID, msg := p.getOrCreateUser(args.User(), args.Get("password").String())
 	if msg != "" {
 		return sdk.Fail(msg, nil)
 	}
 
-	// 2. Load the egg (docker image, start-up command and variables).
 	egg := p.get("nests/" + cfg.nestID + "/eggs/" + cfg.eggID + "?include=variables")
 	if !egg.OK {
 		return sdk.Fail("Failed to load egg "+cfg.eggID+" (status "+sdk.Itoa(egg.Status)+").", egg.Body)
@@ -153,11 +150,10 @@ func DeployService() int32 {
 		startup = eggAttr.Get("startup").String()
 	}
 
-	// 3. Build the environment from egg defaults + configured overrides.
 	env := buildEnvironment(eggAttr.Get("relationships.variables.data"), cfg.defaultVars)
 
-	// 4. Create the server. The panel assigns one allocation from the
-	//    SERVER_PORT range; additional ports are attached afterwards.
+	// The panel assigns one allocation from the SERVER_PORT range; any
+	// additional ports are attached afterwards by attachPorts.
 	serverPortRange := cfg.ports.Get("SERVER_PORT").String()
 	if serverPortRange == "" {
 		return sdk.Fail("ports_ranges must contain a SERVER_PORT entry.", nil)
@@ -200,7 +196,6 @@ func DeployService() int32 {
 
 	portMap := map[string]int{"SERVER_PORT": port}
 
-	// 5. Attach any additional ports required by the configuration.
 	if cfg.needsExtraPorts() {
 		newIP, newPort, msg := p.attachPorts(attachParams{
 			serverID:       serverID,
@@ -442,12 +437,10 @@ func (p panel) serverIDByExternal(externalID string) (int64, string) {
 // by e-mail (adopting and re-linking any pre-existing account), and finally by
 // creating a fresh account.
 func (p panel) getOrCreateUser(u sdk.User, password string) (int64, string) {
-	// 1. Fast path: already linked by external_id.
 	if byExt := p.get("users/external/" + u.ID); byExt.Status == 200 {
 		return sdk.GetBytes(byExt.Body, "attributes.id").Int64(), ""
 	}
 
-	// 2. Adopt an existing account with the same e-mail and re-link it.
 	if u.Email != "" {
 		search := p.get("users?filter[email]=" + urlEncode(u.Email))
 		if search.OK {
@@ -478,7 +471,6 @@ func (p panel) getOrCreateUser(u sdk.User, password string) (int64, string) {
 		}
 	}
 
-	// 3. Create a brand-new account.
 	create := sdk.NewJSON().
 		Set("email", u.Email).
 		Set("username", pteroUsername(u)).
@@ -546,10 +538,9 @@ func (p panel) attachPorts(a attachParams) (string, int, string) {
 		return "", 0, msg
 	}
 
-	// Determine the IP of the server's current default allocation; it anchors
-	// dedicated-IP filtering. The default allocation already belongs to this
-	// server, so treat it as available for (re)selection — this avoids
-	// needless churn and lets a range with a single free port still resolve.
+	// The default allocation already belongs to this server, so it is treated as
+	// available for (re)selection: this anchors dedicated-IP filtering, avoids
+	// needless churn, and lets a range with a single free port still resolve.
 	var anchorIP string
 	for i := range allocs {
 		if allocs[i].id == a.defaultAllocID {
@@ -567,7 +558,6 @@ func (p panel) attachPorts(a attachParams) (string, int, string) {
 		return "", 0, "Could not find a single IP with free ports for all of: " + joinVarNames(vars) + "."
 	}
 
-	// The re-selected SERVER_PORT becomes the primary allocation.
 	primary := found["SERVER_PORT"]
 	build := sdk.NewJSON().
 		Set("allocation", int(primary.id)).
@@ -601,8 +591,8 @@ func (p panel) attachPorts(a attachParams) (string, int, string) {
 		return "", 0, "Failed to attach allocations (status " + sdk.Itoa(buildResp.Status) + ")."
 	}
 
-	// Inject the assigned ports into the environment. SERVER_PORT is derived
-	// from the primary allocation and is therefore not set as a variable.
+	// SERVER_PORT is derived from the primary allocation and is therefore not
+	// written as an environment variable; synthetic ports carry no variable.
 	for _, v := range vars {
 		if v.name == "SERVER_PORT" || v.synthetic {
 			continue
