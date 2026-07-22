@@ -14,12 +14,15 @@ Go program compiled to a WASM reactor, a prebuilt `.wasm`, and a README.
 | [`smtp`](smtp) | SMTP email | Email module — sends mail via the `smtp_send` host function. |
 | [`sendgrid`](sendgrid) | SendGrid email | Email module — sends via the SendGrid v3 HTTP API. |
 | [`postmark`](postmark) | Postmark email | Email module — sends via the Postmark HTTP API. |
+| [`namecheap`](namecheap) | Namecheap registrar | Domain module — register/transfer/renew/manage over the Namecheap XML API. |
 
 The **service** modules export the same lifecycle surface —
 `TestModuleConnection`, `GetServiceConfigOptions`, `DeployService`,
 `SuspendService`, `UnsuspendService`, `UpdateService`, `TerminateService`,
-`ChangePassword` (where the target supports it). The **email** module (`smtp`)
-exports `SendEmail`. All import only the [HostCore.ModuleSDK](..).
+`ChangePassword` (where the target supports it). The **email** modules (`smtp`,
+`sendgrid`, `postmark`) export `SendEmail`. The **domain** module (`namecheap`)
+exports the domain lifecycle (`RegisterDomain`, `TransferDomain`, `RenewDomain`,
+`GetDomainInfo`, …). All import only the [HostCore.ModuleSDK](..).
 
 Each module directory also carries a `<name>-module.json` — the MongoDB module
 document (metadata plus the binding's connection config schema).

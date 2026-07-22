@@ -67,6 +67,23 @@ func StringList(r Result) []string {
 	return out
 }
 
+// Join concatenates items with sep between them.
+func Join(items []string, sep string) string {
+	var b []byte
+	for i, s := range items {
+		if i > 0 {
+			b = append(b, sep...)
+		}
+		b = append(b, s...)
+	}
+	return string(b)
+}
+
+// ToLower returns s with ASCII upper-case letters folded to lower case.
+func ToLower(s string) string {
+	return lower(s)
+}
+
 // SplitCSV splits a comma-separated string, trimming whitespace from each
 // element and dropping empties. It returns nil for an all-empty input.
 //
