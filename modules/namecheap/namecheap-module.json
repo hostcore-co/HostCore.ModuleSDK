@@ -1,0 +1,71 @@
+{
+  "name": "Namecheap",
+  "author": "HostCore",
+  "description": "Official Namecheap domain registrar module",
+  "documentation_url": "https://docs.hostcore.co/modules/namecheap",
+  "official": true,
+  "type": "domain_module",
+  "versions": [
+    {
+      "tag": "1.0",
+      "target_api": "Namecheap API",
+      "digest": "",
+      "config_schema": [
+        {
+          "order": 1,
+          "type": "string",
+          "label": "API User",
+          "description": "Your Namecheap API username",
+          "regex": "",
+          "required": true,
+          "key": "api_user"
+        },
+        {
+          "order": 2,
+          "type": "secret",
+          "label": "API Key",
+          "description": "Your Namecheap API key",
+          "regex": "",
+          "required": true,
+          "key": "api_key"
+        },
+        {
+          "order": 3,
+          "type": "string",
+          "label": "Username",
+          "description": "Your Namecheap account username (usually the same as the API user)",
+          "regex": "",
+          "required": true,
+          "key": "username"
+        },
+        {
+          "order": 4,
+          "type": "string",
+          "label": "Client IP",
+          "description": "A whitelisted public IPv4. Namecheap requires it as the ClientIp parameter on every request, and the Module Engine's egress IP must be whitelisted in your Namecheap API settings.",
+          "regex": "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$",
+          "required": true,
+          "key": "client_ip"
+        },
+        {
+          "order": 5,
+          "type": "bool",
+          "label": "Sandbox",
+          "description": "Use the Namecheap sandbox API (api.sandbox.namecheap.com)",
+          "regex": "",
+          "required": false,
+          "key": "sandbox"
+        }
+      ],
+      "created_at": {
+        "$date": "2026-07-19T00:00:00.000Z"
+      }
+    }
+  ],
+  "created_at": {
+    "$date": "2026-07-19T00:00:00.000Z"
+  },
+  "updated_at": {
+    "$date": "2026-07-19T00:00:00.000Z"
+  }
+}

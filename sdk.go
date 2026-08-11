@@ -136,7 +136,7 @@ func buildResult(success bool, errMsg string, data []byte) []byte {
 
 // JsonString wraps a plain string in JSON quotes and escapes special characters.
 func JsonString(s string) []byte {
-	b := make([]byte, 0, len(s)+2)
+	b := make([]byte, 0)
 	b = append(b, '"')
 	for i := 0; i < len(s); i++ {
 		c := s[i]
@@ -225,14 +225,20 @@ func ParsePortRange(s string) (int, int, bool) {
 
 func TrimSpace(s string) string {
 	start := 0
-	for start < len(s) && (s[start] == ' ' || s[start] == '\t') {
+	for start < len(s) && isSpace(s[start]) {
 		start++
 	}
 	end := len(s)
-	for end > start && (s[end-1] == ' ' || s[end-1] == '\t') {
+	for end > start && isSpace(s[end-1]) {
 		end--
 	}
 	return s[start:end]
+}
+
+// isSpace reports whether c is an ASCII whitespace byte (space, tab, newline,
+// carriage return, vertical tab or form feed).
+func isSpace(c byte) bool {
+	return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\v' || c == '\f'
 }
 
 const letters = "abcdefghijklmnopqrstuvwxyz0123456789"

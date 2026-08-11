@@ -1,0 +1,53 @@
+{
+  "name": "SendGrid",
+  "author": "HostCore",
+  "description": "Official SendGrid email module for sending transactional email",
+  "documentation_url": "https://docs.hostcore.co/modules/sendgrid",
+  "official": true,
+  "type": "email_module",
+  "versions": [
+    {
+      "tag": "1.0",
+      "target_api": "SendGrid v3 API",
+      "digest": "",
+      "config_schema": [
+        {
+          "order": 1,
+          "type": "secret",
+          "label": "API Key",
+          "description": "Your SendGrid API key",
+          "regex": "",
+          "required": true,
+          "key": "api_key"
+        },
+        {
+          "order": 2,
+          "type": "string",
+          "label": "From Email",
+          "description": "Address messages are sent from (must be a verified sender)",
+          "regex": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+          "required": true,
+          "key": "from_email"
+        },
+        {
+          "order": 3,
+          "type": "string",
+          "label": "From Name",
+          "description": "Display name messages are sent from",
+          "regex": "",
+          "required": false,
+          "key": "from_name"
+        }
+      ],
+      "created_at": {
+        "$date": "2026-07-19T00:00:00.000Z"
+      }
+    }
+  ],
+  "created_at": {
+    "$date": "2026-07-19T00:00:00.000Z"
+  },
+  "updated_at": {
+    "$date": "2026-07-19T00:00:00.000Z"
+  }
+}
