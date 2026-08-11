@@ -15,6 +15,7 @@ Go program compiled to a WASM reactor, a prebuilt `.wasm`, and a README.
 | [`sendgrid`](sendgrid) | SendGrid email | Email module — sends via the SendGrid v3 HTTP API. |
 | [`postmark`](postmark) | Postmark email | Email module — sends via the Postmark HTTP API. |
 | [`namecheap`](namecheap) | Namecheap registrar | Domain module — register/transfer/renew/manage over the Namecheap XML API. |
+| [`enom`](enom) | Enom registrar | Domain module — register/transfer/renew/manage over the Enom reseller XML API. |
 
 The **service** modules export the same lifecycle surface —
 `TestModuleConnection`, `GetServiceConfigOptions`, `DeployService`,

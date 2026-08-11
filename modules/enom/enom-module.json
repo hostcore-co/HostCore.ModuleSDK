@@ -1,0 +1,53 @@
+{
+  "name": "Enom",
+  "author": "HostCore",
+  "description": "Official Enom domain registrar module",
+  "documentation_url": "https://docs.hostcore.co/modules/enom",
+  "official": true,
+  "type": "domain_module",
+  "versions": [
+    {
+      "tag": "1.0",
+      "target_api": "Enom Reseller API",
+      "digest": "",
+      "config_schema": [
+        {
+          "order": 1,
+          "type": "string",
+          "label": "Account ID",
+          "description": "Your Enom account login id (uid)",
+          "regex": "",
+          "required": true,
+          "key": "uid"
+        },
+        {
+          "order": 2,
+          "type": "secret",
+          "label": "API Token",
+          "description": "Your Enom API password or token (pw)",
+          "regex": "",
+          "required": true,
+          "key": "pw"
+        },
+        {
+          "order": 3,
+          "type": "bool",
+          "label": "Test Environment",
+          "description": "Use the Enom OT&E test environment (resellertest.enom.com)",
+          "regex": "",
+          "required": false,
+          "key": "test"
+        }
+      ],
+      "created_at": {
+        "$date": "2026-07-19T00:00:00.000Z"
+      }
+    }
+  ],
+  "created_at": {
+    "$date": "2026-07-19T00:00:00.000Z"
+  },
+  "updated_at": {
+    "$date": "2026-07-19T00:00:00.000Z"
+  }
+}

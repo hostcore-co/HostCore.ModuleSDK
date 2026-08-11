@@ -46,6 +46,7 @@ func main() {
 		{"sendgrid", "../modules/sendgrid/sendgrid.wasm", runSendgrid},
 		{"postmark", "../modules/postmark/postmark.wasm", runPostmark},
 		{"namecheap", "../modules/namecheap/namecheap.wasm", runNamecheap},
+		{"enom", "../modules/enom/enom.wasm", runEnom},
 	}
 
 	for _, s := range suites {
