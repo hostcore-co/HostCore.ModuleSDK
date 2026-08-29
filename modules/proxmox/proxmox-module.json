@@ -8,7 +8,7 @@
   "versions": [
     {
       "tag": "1.0",
-      "target_api": "Proxmox VE API v2",
+      "target_api": "Proxmox VE API v2 (PVE 7 or newer)",
       "digest": "",
       "config_schema": [
         {

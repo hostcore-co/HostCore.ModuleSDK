@@ -4,7 +4,8 @@
 // hypervisor. It provisions and manages QEMU virtual machines and LXC
 // containers through the Proxmox VE API v2
 // (https://pve.proxmox.com/pve-docs/api-viewer/), the surface the Proxmox VE
-// for WHMCS module drives.
+// for WHMCS module drives. Requests carry JSON bodies, which pvedaemon decodes
+// from PVE 7 on, so that is the floor this module targets.
 //
 // A guest is addressed by its cluster-wide VMID. DeployService allocates one,
 // returns it as "server_id", and HostCore replays it on later lifecycle calls.

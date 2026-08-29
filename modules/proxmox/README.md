@@ -6,6 +6,12 @@ through the Proxmox VE API v2 — the surface the
 [Proxmox VE for WHMCS](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS)
 module drives.
 
+## Requirements
+
+Proxmox VE **7 or newer**. Requests carry JSON bodies, which `pvedaemon` only
+decodes from that release on; a PVE 6 node answers them as though no parameters
+were sent.
+
 ## Authentication
 
 Two credential pairs are accepted, and the module prefers the first:
