@@ -33,6 +33,8 @@ type pmxCluster struct {
 	stopped    []int
 	started    []int
 	destroyed  []int
+	rebooted   []int
+	agentUp    bool
 }
 
 func newPmx() *pmxCluster {
@@ -154,11 +156,28 @@ func (c *pmxCluster) route(method, rawURL string, body map[string]any) (int, str
 		case "start":
 			g.Status = "running"
 			c.started = append(c.started, vmid)
-		case "stop":
+		case "stop", "shutdown":
 			g.Status = "stopped"
 			c.stopped = append(c.stopped, vmid)
+		case "reboot":
+			c.rebooted = append(c.rebooted, vmid)
 		}
 		return 200, fmt.Sprintf(`{"data":%q}`, c.task(seg[1], "OK"))
+
+	case method == "GET" && len(seg) == 5 && seg[4] == "interfaces":
+		if c.guests[atoiSafe(seg[3])] == nil {
+			return 500, `{"errors":{"vmid":"no such guest"}}`
+		}
+		return 200, `{"data":[{"name":"lo","inet":"127.0.0.1/8"},{"name":"eth0","inet":"198.51.100.24/24"}]}`
+
+	case method == "GET" && len(seg) == 6 && seg[4] == "agent":
+		if !c.agentUp {
+			return 500, `{"errors":{"agent":"QEMU guest agent is not running"}}`
+		}
+		return 200, `{"data":{"result":[
+			{"name":"lo","ip-addresses":[{"ip-address":"127.0.0.1","ip-address-type":"ipv4"}]},
+			{"name":"ens18","ip-addresses":[{"ip-address":"fe80::1","ip-address-type":"ipv6"},{"ip-address":"198.51.100.77","ip-address-type":"ipv4"}]}
+		]}}`
 
 	case method == "PUT" && len(seg) == 5 && seg[4] == "resize":
 		if c.guests[atoiSafe(seg[3])] == nil {
@@ -213,6 +232,7 @@ func runProxmox(wasm []byte) {
 	pmxDeployClone(wasm)
 	pmxPlanChange(wasm)
 	pmxTerminate(wasm)
+	pmxPowerActions(wasm)
 	pmxPendingClone(wasm)
 	pmxConfigOptions(wasm)
 }
@@ -283,6 +303,9 @@ func pmxDeployContainer(wasm []byte) {
 	assert("guest type reported", data["guest_type"] == "lxc", data["guest_type"])
 	assert("guest named for the service", data["name"] == "vps1024", data["name"])
 	assert("no pending flag on a completed task", data["provision_pending"] == nil, data["provision_pending"])
+	creds, _ := data["credentials"].(map[string]any)
+	assert("credentials reported for a fresh container", creds["username"] == "root" && creds["password"] == "secret123", data["credentials"])
+	assert("DHCP lease reported from the container's interfaces", data["ip"] == "198.51.100.24", data["ip"])
 
 	assert("create sent the OS template", c.lastCreate["ostemplate"] == "local:vztmpl/debian-12.tar.zst", c.lastCreate["ostemplate"])
 	assert("rootfs built from storage and disk", c.lastCreate["rootfs"] == "local:10", c.lastCreate["rootfs"])
@@ -307,6 +330,7 @@ func pmxDeployContainer(wasm []byte) {
 	data, _ = res["data"].(map[string]any)
 	assert("VMID skips the taken floor", toInt(data["server_id"]) == 9001, data["server_id"])
 	assert("configured node honoured", data["hostname"] == "pve1", data["hostname"])
+	assert("static address reported without its prefix", data["ip"] == "203.0.113.10", data["ip"])
 	assert("net0 carries the static address",
 		c.lastCreate["net0"] == "name=eth0,bridge=vmbr0,firewall=0,ip=203.0.113.10/24,gw=203.0.113.1", c.lastCreate["net0"])
 	assert("nameservers forwarded", c.lastCreate["nameserver"] == "9.9.9.9", c.lastCreate["nameserver"])
@@ -340,6 +364,18 @@ func pmxDeployClone(wasm []byte) {
 	assert("cloud-init addressing applied", c.lastConfig["ipconfig0"] == "ip=dhcp", c.lastConfig["ipconfig0"])
 	assert("ssh keys applied", c.lastConfig["sshkeys"] == "ssh-ed25519 AAAA", c.lastConfig["sshkeys"])
 	assert("guest started after the clone", len(c.started) == 1 && c.started[0] == vmid, c.started)
+	creds, _ := data["credentials"].(map[string]any)
+	assert("credentials reported for a cloned VM", creds["password"] == "secret123", data["credentials"])
+	assert("no address while the guest agent is down", data["ip"] == nil, data["ip"])
+
+	fmt.Println("── the guest agent supplies the address once it is up")
+	c2 := newPmx()
+	c2.agentUp = true
+	plugin2 := loadPlugin(wasm, c2.route)
+	res = call(plugin2, "DeployService", args)
+	assert("deploy succeeds", res["success"] == true, res)
+	data, _ = res["data"].(map[string]any)
+	assert("IPv4 taken from the agent, skipping loopback and IPv6", data["ip"] == "198.51.100.77", data["ip"])
 
 	assert("cloning a missing template fails",
 		call(plugin, "DeployService", pmxArgs("token", "", cfg("guest_type", "qemu")+","+cfg("template_vmid", "4242")+","+cfg("memory", "1024")))["success"] == false, nil)
@@ -420,6 +456,7 @@ func pmxPendingClone(wasm []byte) {
 	assert("VMID bound to the service", toInt(data["server_id"]) == pmxPendingVMID, data["server_id"])
 	assert("provision flagged as pending", data["provision_pending"] == true, data["provision_pending"])
 	assert("task UPID reported", strings.HasPrefix(str(data["task"]), "UPID:"), data["task"])
+	assert("no credentials while the clone runs", data["credentials"] == nil, data["credentials"])
 	assert("no config applied while the clone runs", c.lastConfig == nil, c.lastConfig)
 	assert("guest not started while the clone runs", len(c.started) == 0, c.started)
 
@@ -438,6 +475,46 @@ func pmxPendingClone(wasm []byte) {
 	}, ",")))
 	assert("deploy fails", failed["success"] == false, failed)
 	assert("failure names the exit status", strings.Contains(str(failed["error"]), "no space left on device"), failed["error"])
+}
+
+func pmxPowerActions(wasm []byte) {
+	fmt.Println("── customer power actions")
+	c := newPmx()
+	plugin := loadPlugin(wasm, c.route)
+	c.guests[141] = &pmxGuest{Node: "pve1", Type: "qemu", Status: "running", Config: map[string]any{}}
+
+	lc := pmxArgs("token", "141", "")
+	withAction := func(action string) string {
+		return strings.Replace(lc, `"service_id":"1024"`, `"service_id":"1024","action":"`+action+`"`, 1)
+	}
+
+	res := call(plugin, "ServiceAction", withAction("restart"))
+	assert("restart", res["success"] == true, res)
+	assert("reboot issued", len(c.rebooted) == 1 && c.rebooted[0] == 141, c.rebooted)
+	data, _ := res["data"].(map[string]any)
+	assert("status reported back", data["status"] == "running", data)
+	assert("action echoed", data["action"] == "restart", data)
+
+	res = call(plugin, "ServiceAction", withAction("shutdown"))
+	assert("shutdown", res["success"] == true, res)
+	assert("guest stopped", c.guests[141].Status == "stopped", c.guests[141].Status)
+	data, _ = res["data"].(map[string]any)
+	assert("stopped status reported back", data["status"] == "stopped", data)
+
+	assert("restarting a stopped guest is refused", call(plugin, "ServiceAction", withAction("restart"))["success"] == false, nil)
+	assert("shutting down a stopped guest is refused", call(plugin, "ServiceAction", withAction("shutdown"))["success"] == false, nil)
+
+	res = call(plugin, "ServiceAction", withAction("start"))
+	assert("start", res["success"] == true, res)
+	assert("guest running", c.guests[141].Status == "running", c.guests[141].Status)
+
+	res = call(plugin, "ServiceAction", withAction("stop"))
+	assert("stop", res["success"] == true, res)
+	assert("guest stopped", c.guests[141].Status == "stopped", c.guests[141].Status)
+
+	assert("an unknown action is refused", call(plugin, "ServiceAction", withAction("selfdestruct"))["success"] == false, nil)
+	assert("an action without a VMID is refused", call(plugin, "ServiceAction", `{"hostname":"pve.test","api_token_id":"a@pam!b","api_token_secret":"c","action":"start"}`)["success"] == false, nil)
+	assert("an action on an unknown VMID is refused", call(plugin, "ServiceAction", strings.Replace(withAction("start"), `"remote_id":"141"`, `"remote_id":"9911"`, 1))["success"] == false, nil)
 }
 
 func pmxConfigOptions(wasm []byte) {

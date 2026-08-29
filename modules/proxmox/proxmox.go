@@ -60,6 +60,16 @@ const (
 	maxVMIDProbe = 512
 )
 
+// powerActions maps a customer-facing action onto the Proxmox status endpoint
+// that performs it. "stop" cuts power; "shutdown" asks the guest to close down
+// through ACPI and may be declined.
+var powerActions = map[string]string{
+	"start":    "start",
+	"stop":     "stop",
+	"restart":  "reboot",
+	"shutdown": "shutdown",
+}
+
 // -----------------------------------------------------------------------------
 // Exported lifecycle functions
 // -----------------------------------------------------------------------------
@@ -200,6 +210,45 @@ func UnsuspendService() int32 {
 		return sdk.Fail("Failed to unsuspend the guest"+withReason(msg)+".", nil)
 	}
 	return sdk.Success(nil)
+}
+
+// ServiceAction runs a customer-initiated power action against the guest. It
+// reports the state the guest is in afterwards so a dashboard can settle
+// without a second call.
+//
+//go:wasmexport ServiceAction
+func ServiceAction() int32 {
+	args := sdk.GetArgs()
+	action := sdk.ToLower(sdk.TrimSpace(args.Get("action").String()))
+
+	endpoint, ok := powerActions[action]
+	if !ok {
+		return sdk.Fail("Unsupported action "+action+"; expected start, stop, restart or shutdown.", nil)
+	}
+
+	p, g, vmid, msg := resolve(args)
+	if msg != "" {
+		return sdk.Fail(msg, nil)
+	}
+	if !g.found() {
+		return sdk.Fail("No Proxmox guest with VMID "+vmid+" exists on the cluster.", nil)
+	}
+	if g.status == "stopped" && (action == "restart" || action == "shutdown") {
+		return sdk.Fail("The guest is already stopped, so it cannot be "+action+"ed.", nil)
+	}
+
+	if msg := p.power(g, vmid, endpoint); msg != "" {
+		return sdk.Fail("Failed to "+action+" the guest"+withReason(msg)+".", nil)
+	}
+
+	// The status Proxmox reports right after the task settles is the one the
+	// dashboard should show; re-reading it costs a request but avoids guessing
+	// at a shutdown the guest declined to honour.
+	after, msg := p.findGuest(vmid)
+	if msg != "" {
+		return sdk.Fail(msg, nil)
+	}
+	return sdk.Success(sdk.NewJSON().Set("action", action).Set("status", after.status).Build())
 }
 
 // TerminateService stops the guest and destroys it along with its disks.
@@ -348,7 +397,8 @@ func (p pve) deployClone(args sdk.Args, template, gtype, node string, vmid int, 
 	if !done {
 		// The VMID is allocated and Proxmox is still copying disks. Reporting
 		// success binds the service to the guest; a failure here would leave it
-		// running with nothing on this side addressing it.
+		// running with nothing on this side addressing it. No credentials are
+		// reported: the tuning below, which sets the password, has not run.
 		return sdk.Success(result.Set("provision_pending", true).Set("task", upidOf(resp)).Build())
 	}
 
@@ -367,7 +417,14 @@ func (p pve) deployClone(args sdk.Args, template, gtype, node string, vmid int, 
 			return sdk.Fail("The guest was cloned but would not start"+withReason(msg)+".", nil)
 		}
 	}
-	return sdk.Success(result.Build())
+
+	// A cloned container keeps the template's root password: Proxmox has no
+	// endpoint to change it, so reporting one the module never set would send
+	// the customer a password that does not work.
+	if gtype == "qemu" {
+		result.Set("credentials", credentials(password))
+	}
+	return sdk.Success(p.withAddress(result, args, g, vmid).Build())
 }
 
 // deployFresh provisions the guest from an OS template (LXC) or an empty disk
@@ -397,10 +454,109 @@ func (p pve) deployFresh(args sdk.Args, gtype, node string, vmid int, name, pass
 	if failure != "" {
 		return sdk.Fail("The guest creation failed"+withReason(failure)+".", resp.Body)
 	}
+
+	// The password travelled in the create payload, so it is the guest's from
+	// the moment it exists — reportable even while the task is still running.
+	result.Set("credentials", credentials(password))
 	if !done {
 		return sdk.Success(result.Set("provision_pending", true).Set("task", upidOf(resp)).Build())
 	}
-	return sdk.Success(result.Build())
+	return sdk.Success(p.withAddress(result, args, guest{node: node, gtype: gtype}, vmid).Build())
+}
+
+// withAddress adds the guest's address to a deploy result. A statically
+// configured address is known outright; a DHCP lease is asked for once and
+// left out when the guest has not obtained one yet, which is the common case
+// for a guest that has only just been started.
+func (p pve) withAddress(result *sdk.JSON, args sdk.Args, g guest, vmid int) *sdk.JSON {
+	if addr := staticAddress(args); addr != "" {
+		return result.Set("ip", addr)
+	}
+	if addr := p.leasedAddress(g, sdk.Itoa(vmid)); addr != "" {
+		return result.Set("ip", addr)
+	}
+	return result
+}
+
+// staticAddress returns the address the plan pins, without its prefix length.
+// A plan on DHCP has none to report.
+func staticAddress(args sdk.Args) string {
+	addr := cfgStr(args, "ip_address")
+	if addr == "" || sdk.EqualFold(addr, "dhcp") {
+		return ""
+	}
+	for i := 0; i < len(addr); i++ {
+		if addr[i] == '/' {
+			return addr[:i]
+		}
+	}
+	return addr
+}
+
+// leasedAddress asks the guest for the address it holds. A container answers
+// from the host; a virtual machine only answers once qemu-guest-agent is
+// running inside it, so an empty result is expected rather than an error.
+func (p pve) leasedAddress(g guest, vmid string) string {
+	if g.gtype == "lxc" {
+		resp := p.get(g.path(vmid) + "/interfaces")
+		if !resp.OK {
+			return ""
+		}
+		found := ""
+		sdk.GetBytes(resp.Body, "data").ForEach(func(_, v sdk.Result) bool {
+			if v.Get("name").String() == "lo" {
+				return true
+			}
+			if inet := v.Get("inet").String(); inet != "" {
+				found = trimPrefixLength(inet)
+				return false
+			}
+			return true
+		})
+		return found
+	}
+
+	resp := p.get(g.path(vmid) + "/agent/network-get-interfaces")
+	if !resp.OK {
+		return ""
+	}
+	found := ""
+	sdk.GetBytes(resp.Body, "data.result").ForEach(func(_, iface sdk.Result) bool {
+		if iface.Get("name").String() == "lo" {
+			return true
+		}
+		iface.Get("ip-addresses").ForEach(func(_, a sdk.Result) bool {
+			if a.Get("ip-address-type").String() != "ipv4" {
+				return true
+			}
+			if ip := a.Get("ip-address").String(); ip != "" && ip != "127.0.0.1" {
+				found = ip
+				return false
+			}
+			return true
+		})
+		return found == ""
+	})
+	return found
+}
+
+// trimPrefixLength drops the /prefix from an address in CIDR form.
+func trimPrefixLength(addr string) string {
+	for i := 0; i < len(addr); i++ {
+		if addr[i] == '/' {
+			return addr[:i]
+		}
+	}
+	return addr
+}
+
+// credentials is the login the platform delivers to the customer. Proxmox
+// provisions both guest types against root.
+func credentials(password string) []byte {
+	return sdk.NewJSON().
+		Set("username", "root").
+		Set("password", password).
+		Build()
 }
 
 // createQEMU builds the payload for POST /nodes/{node}/qemu.

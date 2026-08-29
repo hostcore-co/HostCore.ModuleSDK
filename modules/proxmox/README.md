@@ -72,6 +72,7 @@ the case that reaches it, and a linked clone (`full_clone` off) avoids it.
 | `TerminateService` | `status/stop` when running, then `DELETE /nodes/{node}/{type}/{vmid}?purge=1` |
 | `UpdateService` | `GET` then `POST` (QEMU) or `PUT` (LXC) `/nodes/{node}/{type}/{vmid}/config`, then `PUT …/resize` |
 | `ChangePassword` | `POST /nodes/{node}/qemu/{vmid}/config` with `cipassword` |
+| `ServiceAction` | `POST /nodes/{node}/{type}/{vmid}/status/{start\|stop\|reboot\|shutdown}` |
 
 Suspend and unsuspend are no-ops when the guest is already in the target state,
 and a VMID that no longer exists on the cluster terminates successfully — the
@@ -88,6 +89,50 @@ next boot. Proxmox exposes no password endpoint for an existing LXC container,
 so the call is refused for one rather than reporting a change that never
 happened.
 
+## What the deploy reports back
+
+```json
+{
+  "server_id": 105,
+  "hostname": "pve2",
+  "guest_type": "lxc",
+  "name": "vps1024",
+  "ip": "198.51.100.24",
+  "credentials": { "username": "root", "password": "…" }
+}
+```
+
+`ip` is the plan's static address when it pins one, and otherwise the lease the
+guest reports — from `/interfaces` for a container, or the QEMU guest agent for
+a VM. A guest that has only just been started usually has neither yet, so `ip`
+is **left out** rather than guessed at; the platform fills it in later.
+
+`credentials` is reported only where the module actually set the password:
+
+| Path | Reported | Why |
+| --- | --- | --- |
+| Fresh create (QEMU or LXC) | yes | The password travels in the create payload. |
+| Cloned QEMU | yes | Written as `cipassword` in the post-clone config. |
+| Cloned LXC | **no** | The container keeps the template's password and Proxmox has no endpoint to change it. |
+| Any `provision_pending` clone | **no** | The config carrying the password has not been applied yet. |
+
+Reporting a password the module never set would send the customer a login that
+does not work, so those paths stay silent instead.
+
+## Customer power actions
+
+`ServiceAction` takes `action` as `start`, `stop`, `restart` or `shutdown`, and
+returns the state the guest settled in:
+
+```json
+{"action": "shutdown", "status": "stopped"}
+```
+
+`stop` cuts power; `shutdown` asks the guest to close down over ACPI and may be
+declined by the guest. `restart` and `shutdown` are refused on a guest that is
+already stopped. The status is re-read after the task settles rather than
+inferred, so a shutdown the guest ignored reports `running`.
+
 ## Input
 
 | Field | Purpose |
@@ -99,6 +144,7 @@ happened.
 | `remote_id` | VMID, supplied on lifecycle calls after deploy. |
 | `service_id` | Store service id; names the guest when no hostname is configured. |
 | `password` | Root/cloud-init password for the guest. A random one is generated when absent. |
+| `action` | Power action for `ServiceAction`. |
 
 ## Configuration options (`service_config`)
 
