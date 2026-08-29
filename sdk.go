@@ -3,6 +3,7 @@ package sdk
 import (
 	"math/rand"
 	"strconv"
+	"time"
 
 	"github.com/extism/go-pdk"
 	"github.com/tidwall/gjson"
@@ -98,6 +99,13 @@ func Itoa(n int) string {
 
 func Itoa64(n int64) string {
 	return strconv.FormatInt(n, 10)
+}
+
+// Sleep pauses the module for ms milliseconds. Executions run under the
+// engine's execution timeout, so a module that polls a remote task must keep
+// its total wait well inside that budget.
+func Sleep(ms int) {
+	time.Sleep(time.Duration(ms) * time.Millisecond)
 }
 
 func Atoi(s string) int {

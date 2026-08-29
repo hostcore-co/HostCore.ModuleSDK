@@ -1,0 +1,80 @@
+{
+  "name": "Proxmox VE",
+  "author": "HostCore",
+  "description": "Official module for the Proxmox Virtual Environment hypervisor",
+  "documentation_url": "https://docs.hostcore.co/modules/proxmox",
+  "official": true,
+  "type": "service_module",
+  "versions": [
+    {
+      "tag": "1.0",
+      "target_api": "Proxmox VE API v2",
+      "digest": "",
+      "config_schema": [
+        {
+          "order": 1,
+          "type": "string",
+          "label": "Proxmox Host",
+          "description": "Hostname or address of a node in the cluster (eg. pve.domain.com)",
+          "regex": "^[A-Za-z0-9.-]+$",
+          "required": true,
+          "key": "hostname"
+        },
+        {
+          "order": 2,
+          "type": "number",
+          "label": "API Port",
+          "description": "Proxmox web/API port. Defaults to 8006",
+          "regex": "^[0-9]{1,5}$",
+          "required": false,
+          "key": "port"
+        },
+        {
+          "order": 3,
+          "type": "string",
+          "label": "API Token ID",
+          "description": "Preferred credential — an API token id in the form user@realm!tokenid",
+          "regex": "^[^@!]+@[^@!]+![^@!]+$",
+          "required": false,
+          "key": "api_token_id"
+        },
+        {
+          "order": 4,
+          "type": "secret",
+          "label": "API Token Secret",
+          "description": "The secret shown when the API token was created",
+          "regex": "",
+          "required": false,
+          "key": "api_token_secret"
+        },
+        {
+          "order": 5,
+          "type": "string",
+          "label": "Login User",
+          "description": "Used only when no API token is set — a Proxmox user with the realm (eg. root@pam)",
+          "regex": "",
+          "required": false,
+          "key": "api_user"
+        },
+        {
+          "order": 6,
+          "type": "secret",
+          "label": "Login Password",
+          "description": "Password for the login user",
+          "regex": "",
+          "required": false,
+          "key": "api_password"
+        }
+      ],
+      "created_at": {
+        "$date": "2026-08-29T00:00:00.000Z"
+      }
+    }
+  ],
+  "created_at": {
+    "$date": "2026-08-29T00:00:00.000Z"
+  },
+  "updated_at": {
+    "$date": "2026-08-29T00:00:00.000Z"
+  }
+}
