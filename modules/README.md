@@ -12,6 +12,7 @@ Go program compiled to a WASM reactor, a prebuilt `.wasm`, and a README.
 | [`virtfusion`](virtfusion) | [VirtFusion](https://virtfusion.com) VPS/KVM panel | VPS provisioning via API v1; server-id round-trip; byExtRelation users. |
 | [`virtualizor`](virtualizor) | [Virtualizor](https://www.virtualizor.com) VPS panel | VPS provisioning via the Admin API (act-based single endpoint). |
 | [`proxmox`](proxmox) | [Proxmox VE](https://www.proxmox.com/en/proxmox-virtual-environment) hypervisor | QEMU/LXC provisioning via the API v2; token or ticket auth; background-task polling. |
+| [`convoy`](convoy) | [Convoy](https://convoypanel.com) KVM panel | KVM provisioning via the Application API v4; pool-drawn addresses; byte-scaled build limits. |
 | [`smtp`](smtp) | SMTP email | Email module — sends mail via the `smtp_send` host function. |
 | [`sendgrid`](sendgrid) | SendGrid email | Email module — sends via the SendGrid v3 HTTP API. |
 | [`postmark`](postmark) | Postmark email | Email module — sends via the Postmark HTTP API. |

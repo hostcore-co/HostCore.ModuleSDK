@@ -1,7 +1,8 @@
 package sdk
 
 import (
-	"math/rand"
+	"crypto/rand"
+	mathrand "math/rand"
 	"strconv"
 	"time"
 
@@ -90,6 +91,59 @@ func Success(data []byte) int32 {
 func Fail(message string, data []byte) int32 {
 	pdk.Output(buildResult(false, message, data))
 	return 1
+}
+
+// Password character classes. Ambiguous glyphs (l, I, O, 0, 1) are left out so
+// a password stays transcribable from an email, and the symbols are the set
+// panels most commonly accept.
+const (
+	passwordLower   = "abcdefghijkmnopqrstuvwxyz"
+	passwordUpper   = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+	passwordDigits  = "23456789"
+	passwordSymbols = "!@#$%^&*"
+)
+
+// Password returns a cryptographically random password of length n carrying at
+// least one lower-case letter, one upper-case letter, one digit and one symbol
+// — the complexity panels typically enforce. n below 4 cannot satisfy that.
+//
+// Unlike RandomString, which is for identifiers a panel merely needs to be
+// unique, this draws from the host's cryptographic source: these values are
+// delivered to customers as the login for a live machine.
+func Password(n int) string {
+	all := passwordLower + passwordUpper + passwordDigits + passwordSymbols
+
+	out := make([]byte, 0)
+	for _, class := range []string{passwordLower, passwordUpper, passwordDigits, passwordSymbols} {
+		out = append(out, class[randIndex(len(class))])
+	}
+	for len(out) < n {
+		out = append(out, all[randIndex(len(all))])
+	}
+
+	// Shuffle so the guaranteed classes do not always occupy the first four
+	// positions, which would leak the pattern to anyone who has seen one.
+	for i := len(out) - 1; i > 0; i-- {
+		j := randIndex(i + 1)
+		out[i], out[j] = out[j], out[i]
+	}
+	return string(out)
+}
+
+// randIndex returns a uniform index below n. Values landing in the short final
+// window of the byte range are redrawn, which a plain modulo would instead fold
+// onto the low indices and bias.
+func randIndex(n int) int {
+	limit := 256 - (256 % n)
+	var b [1]byte
+	for {
+		if _, err := rand.Read(b[:]); err != nil {
+			panic("sdk: cryptographic randomness unavailable: " + err.Error())
+		}
+		if int(b[0]) < limit {
+			return int(b[0]) % n
+		}
+	}
 }
 
 // Itoa converts an int to a string
@@ -256,7 +310,7 @@ const letters = "abcdefghijklmnopqrstuvwxyz0123456789"
 func RandomString(n int) string {
 	b := make([]byte, n)
 	for i := range b {
-		b[i] = letters[rand.Intn(len(letters))]
+		b[i] = letters[mathrand.Intn(len(letters))]
 	}
 	return string(b)
 }

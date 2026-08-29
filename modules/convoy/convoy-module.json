@@ -1,0 +1,44 @@
+{
+  "name": "Convoy",
+  "author": "HostCore",
+  "description": "Official module for the Convoy KVM server panel",
+  "documentation_url": "https://docs.hostcore.co/modules/convoy",
+  "official": true,
+  "type": "service_module",
+  "versions": [
+    {
+      "tag": "1.0",
+      "target_api": "Convoy Application API v4",
+      "digest": "",
+      "config_schema": [
+        {
+          "order": 1,
+          "type": "string",
+          "label": "Panel Hostname",
+          "description": "Your Convoy panel's hostname (eg. convoy.domain.com)",
+          "regex": "^[A-Za-z0-9.-]+$",
+          "required": true,
+          "key": "domain"
+        },
+        {
+          "order": 2,
+          "type": "secret",
+          "label": "Application API Token",
+          "description": "An application API token generated from the Convoy admin area",
+          "regex": "",
+          "required": true,
+          "key": "api_key"
+        }
+      ],
+      "created_at": {
+        "$date": "2026-08-29T00:00:00.000Z"
+      }
+    }
+  ],
+  "created_at": {
+    "$date": "2026-08-29T00:00:00.000Z"
+  },
+  "updated_at": {
+    "$date": "2026-08-29T00:00:00.000Z"
+  }
+}

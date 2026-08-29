@@ -25,6 +25,7 @@ func NewJSON() *JSON {
 //   - []byte    → raw JSON (embedded as-is, assumed to be valid JSON)
 //   - bool      → true / false
 //   - int       → number
+//   - int64     → number, for quantities that overflow a 32-bit int
 //   - float64   → number
 func (j *JSON) Set(key string, value interface{}) *JSON {
 	j.keys = append(j.keys, key)
@@ -97,6 +98,8 @@ func encodeValue(v interface{}) []byte {
 		return []byte("false")
 	case int:
 		return intToBytes(val)
+	case int64:
+		return []byte(Itoa64(val))
 	case float64:
 		return float64ToBytes(val)
 	case nil:

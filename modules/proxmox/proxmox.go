@@ -1107,12 +1107,14 @@ func guestName(args sdk.Args) string {
 }
 
 // guestPassword is the root password the platform generated for the service,
-// falling back to a random one so a guest is never created without credentials.
+// falling back to a generated one so a guest is never created without
+// credentials. The fallback is cryptographically random: it is the login to a
+// live machine, and the platform delivers it to the customer.
 func guestPassword(args sdk.Args) string {
 	if pw := args.Get("password").String(); pw != "" {
 		return pw
 	}
-	return sdk.RandomString(16)
+	return sdk.Password(20)
 }
 
 // withRealm appends Proxmox's default realm to a bare user name, which the
