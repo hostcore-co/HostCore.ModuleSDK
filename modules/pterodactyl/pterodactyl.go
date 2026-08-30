@@ -378,33 +378,6 @@ func powerLifecycle(action, verb string) int32 {
 	return sdk.Success(nil)
 }
 
-// ServiceAction reinstalls the server from its egg. Pterodactyl keeps power
-// control on its client API, which answers to a customer's own token rather
-// than the application token this module holds, so starting and stopping is
-// done from the panel; reinstalling is the one action the application API
-// exposes.
-//
-//go:wasmexport ServiceAction
-func ServiceAction() int32 {
-	args := sdk.GetArgs()
-	action := sdk.ToLower(sdk.TrimSpace(args.Get("action").String()))
-	if action != "reinstall" {
-		return sdk.Fail("Pterodactyl's application API cannot "+action+" a server; that is done from the panel.", []byte(`{"code":"unsupported"}`))
-	}
-
-	p := newPanel(args)
-	id, msg := p.serverIDByExternal(serviceID(args))
-	if msg != "" {
-		return sdk.Fail(msg, nil)
-	}
-
-	resp := p.post("servers/"+sdk.Itoa64(id)+"/reinstall", nil)
-	if resp.Status != 204 && resp.Status != 202 && resp.Status != 200 {
-		return sdk.Fail("Failed to reinstall the server (status "+sdk.Itoa(resp.Status)+").", resp.Body)
-	}
-	return sdk.Success(sdk.NewJSON().Set("action", action).Build())
-}
-
 // -----------------------------------------------------------------------------
 // Panel client
 // -----------------------------------------------------------------------------

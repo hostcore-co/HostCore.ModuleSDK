@@ -30,14 +30,13 @@ type pteroServer struct {
 }
 
 type pteroPanel struct {
-	users       map[string]int64
-	usersByID   map[int64]map[string]string
-	nextUser    int64
-	servers     map[string]*pteroServer
-	byID        map[int64]*pteroServer
-	nextServer  int64
-	allocs      []*pteroAlloc
-	reinstalled int
+	users      map[string]int64
+	usersByID  map[int64]map[string]string
+	nextUser   int64
+	servers    map[string]*pteroServer
+	byID       map[int64]*pteroServer
+	nextServer int64
+	allocs     []*pteroAlloc
 }
 
 func newPtero() *pteroPanel {
@@ -112,12 +111,6 @@ func (p *pteroPanel) route(method, rawURL string, body map[string]any) (int, str
 		return p.buildServer(pteroServerID(ep), body)
 	case method == "PATCH" && strings.Contains(ep, "/startup"):
 		return p.startupServer(pteroServerID(ep), body)
-	case method == "POST" && strings.HasSuffix(ep, "/reinstall"):
-		if p.byID[pteroServerID(ep)] == nil {
-			return 404, `{}`
-		}
-		p.reinstalled++
-		return 204, ``
 	case method == "POST" && strings.HasSuffix(ep, "/suspend"):
 		p.setSuspended(pteroServerID(ep), true)
 		return 204, ``
@@ -369,7 +362,6 @@ func runPtero(wasm []byte) {
 	pteroLifecycle(wasm)
 	pteroDedicatedPort(wasm)
 	pteroConfigOptions(wasm)
-	pteroActions(wasm)
 }
 
 func pteroMultiPort(wasm []byte) {
@@ -477,33 +469,4 @@ func pteroConfigOptions(wasm []byte) {
 		}
 	}
 	assert("ports_ranges advertised & required", found, nil)
-}
-
-func pteroActions(wasm []byte) {
-	fmt.Println("── reinstall, the one action the application API exposes")
-	p := newPtero()
-	plugin := loadPlugin(wasm, p.route)
-
-	args := baseArgs(strings.Join([]string{
-		cfg("nest_id", "1"), cfg("egg_id", "1"), cfg("location_id", "1"),
-		cfg("cpu", "100"), cfg("memory", "2"), cfg("memory_unit", "GB"),
-		cfg("disk", "10"), cfg("disk_unit", "GB"), cfg("swap", "0"),
-		cfg("databases", "1"), cfg("backups", "2"), cfg("allocations", "0"),
-		cfg("ports_ranges", `{"SERVER_PORT":"25565-25570"}`),
-	}, ","))
-	assert("deploy succeeds", call(plugin, "DeployService", args)["success"] == true, nil)
-
-	withAction := func(a string) string {
-		return strings.Replace(args, `"service_id":"1024"`, `"service_id":"1024","action":"`+a+`"`, 1)
-	}
-
-	res := call(plugin, "ServiceAction", withAction("reinstall"))
-	assert("reinstall succeeds", res["success"] == true, res)
-	assert("the panel was asked to reinstall", p.reinstalled == 1, p.reinstalled)
-
-	// Power lives on the client API, which this module has no token for.
-	bad := call(plugin, "ServiceAction", withAction("restart"))
-	assert("power actions are refused", bad["success"] == false, bad)
-	badData, _ := bad["data"].(map[string]any)
-	assert("refusal carries the unsupported code", badData["code"] == "unsupported", bad["data"])
 }

@@ -32,21 +32,7 @@
       ],
       "created_at": {
         "$date": "2026-07-19T00:00:00.000Z"
-      },
-      "actions": [
-        {
-          "order": 1,
-          "value": "reinstall",
-          "label": "Reinstall server",
-          "description": "Rebuilds the server from its egg. Files are wiped.",
-          "confirm": "Reinstall the server? Every file on it is deleted and the server is rebuilt from scratch.",
-          "effect": "refresh",
-          "style": "danger",
-          "statuses": [
-            "active"
-          ]
-        }
-      ]
+      }
     }
   ],
   "created_at": {

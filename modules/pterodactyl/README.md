@@ -112,21 +112,6 @@ range the deploy fails cleanly rather than scattering ports across hosts.
 }
 ```
 
-## Customer actions
-
-The version declares one button, `reinstall`, with a `refresh` effect and a
-confirmation — it wipes every file on the server and rebuilds it from the egg.
-
-Power control is **not** offered. Pterodactyl keeps start/stop/restart on its
-**client** API, which answers to a customer's own token rather than the
-application token this module holds; `reinstall` is the one server action the
-application API exposes. Adding power would mean giving the module a second
-credential — an admin account's client API key, which reaches every server on
-the panel — so it is left out deliberately rather than by oversight.
-
-Pterodactyl has no single sign-on: the panel exposes none, in the application
-API or anywhere else.
-
 ## Build & test
 
 ```sh
