@@ -33,7 +33,7 @@
           "order": 3,
           "type": "string",
           "label": "API Token ID",
-          "description": "Preferred credential — an API token id in the form user@realm!tokenid",
+          "description": "Preferred credential \u2014 an API token id in the form user@realm!tokenid",
           "regex": "^[^@!]+@[^@!]+![^@!]+$",
           "required": false,
           "key": "api_token_id"
@@ -51,7 +51,7 @@
           "order": 5,
           "type": "string",
           "label": "Login User",
-          "description": "Used only when no API token is set — a Proxmox user with the realm (eg. root@pam)",
+          "description": "Used only when no API token is set \u2014 a Proxmox user with the realm (eg. root@pam)",
           "regex": "",
           "required": false,
           "key": "api_user"
@@ -68,7 +68,57 @@
       ],
       "created_at": {
         "$date": "2026-08-29T00:00:00.000Z"
-      }
+      },
+      "actions": [
+        {
+          "order": 1,
+          "value": "start",
+          "label": "Start",
+          "description": "Powers the guest on.",
+          "confirm": "",
+          "effect": "refresh",
+          "style": "primary",
+          "statuses": [
+            "active"
+          ]
+        },
+        {
+          "order": 2,
+          "value": "shutdown",
+          "label": "Shut down",
+          "description": "Asks the guest to shut down through ACPI. The guest may decline.",
+          "confirm": "Shut down the server? Anything running on it will stop.",
+          "effect": "refresh",
+          "style": "default",
+          "statuses": [
+            "active"
+          ]
+        },
+        {
+          "order": 3,
+          "value": "restart",
+          "label": "Restart",
+          "description": "Reboots the guest.",
+          "confirm": "Restart the server? It will be unavailable while it reboots.",
+          "effect": "refresh",
+          "style": "default",
+          "statuses": [
+            "active"
+          ]
+        },
+        {
+          "order": 4,
+          "value": "stop",
+          "label": "Force stop",
+          "description": "Cuts power to the guest without asking it to shut down.",
+          "confirm": "Force stop the server? This cuts power immediately and can lose unsaved data.",
+          "effect": "refresh",
+          "style": "danger",
+          "statuses": [
+            "active"
+          ]
+        }
+      ]
     }
   ],
   "created_at": {

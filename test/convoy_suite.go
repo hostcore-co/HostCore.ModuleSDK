@@ -48,6 +48,7 @@ type convoyPanel struct {
 	lastBuild  map[string]any
 	lastUser   map[string]any
 	perPage    []string
+	ssoTokens  int
 }
 
 func newConvoy() *convoyPanel {
@@ -89,6 +90,13 @@ func (p *convoyPanel) route(method, rawURL string, body map[string]any) (int, st
 			}
 		}
 		return 200, `{"data":[` + strings.Join(rows, ",") + `]}`
+
+	case method == "POST" && len(seg) == 3 && seg[0] == "users" && seg[2] == "generate-sso-token":
+		if p.users[atoiSafe(seg[1])] == nil {
+			return 404, `{"message":"user not found"}`
+		}
+		p.ssoTokens++
+		return 200, fmt.Sprintf(`{"data":{"user_id":%s,"token":"tok-%d"}}`, seg[1], p.ssoTokens)
 
 	case method == "POST" && ep == "users":
 		id := p.nextUser
@@ -314,10 +322,25 @@ func convoyLifecycle(wasm []byte) {
 	assert("deploy without a node fails", call(plugin, "DeployService", convoyArgs("", cfg("cpu", "1")))["success"] == false, nil)
 	assert("lifecycle call without a UUID fails", call(plugin, "SuspendService", convoyArgs("", ""))["success"] == false, nil)
 
-	action := call(plugin, "ServiceAction", convoyArgs(uuid, ""))
+	withAction := func(a string) string {
+		return strings.Replace(convoyArgs(uuid, ""), `"service_id":"1024"`, `"service_id":"1024","action":"`+a+`"`, 1)
+	}
+	action := call(plugin, "ServiceAction", withAction("restart"))
 	assert("power actions report themselves unsupported", action["success"] == false, action)
 	actionData, _ := action["data"].(map[string]any)
 	assert("unsupported carries the documented code", actionData["code"] == "unsupported", action["data"])
+
+	fmt.Println("── single sign-on mints a fresh link on every click")
+	sso := call(plugin, "ServiceAction", withAction("sso"))
+	assert("sso succeeds", sso["success"] == true, sso)
+	ssoData, _ := sso["data"].(map[string]any)
+	assert("sso returns an authenticate URL carrying the token",
+		ssoData["url"] == "https://convoy.test/authenticate?token=tok-1", ssoData["url"])
+
+	again := call(plugin, "ServiceAction", withAction("sso"))
+	againData, _ := again["data"].(map[string]any)
+	assert("a second click mints a second token", againData["url"] != ssoData["url"], againData["url"])
+	assert("both clicks reached Convoy", p.ssoTokens == 2, p.ssoTokens)
 }
 
 // Convoy filters users by a partial e-mail match, so a lookup can return an

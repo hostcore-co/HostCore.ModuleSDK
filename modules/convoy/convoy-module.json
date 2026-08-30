@@ -32,7 +32,22 @@
       ],
       "created_at": {
         "$date": "2026-08-29T00:00:00.000Z"
-      }
+      },
+      "actions": [
+        {
+          "order": 1,
+          "value": "sso",
+          "label": "Open Convoy panel",
+          "description": "Signs in to the Convoy panel, where the server is started, stopped and reinstalled.",
+          "confirm": "",
+          "effect": "redirect",
+          "style": "primary",
+          "statuses": [
+            "active",
+            "suspended"
+          ]
+        }
+      ]
     }
   ],
   "created_at": {

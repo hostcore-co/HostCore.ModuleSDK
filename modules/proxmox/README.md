@@ -121,6 +121,12 @@ does not work, so those paths stay silent instead.
 
 ## Customer power actions
 
+The version declares four buttons — `start`, `shutdown`, `restart` and `stop` —
+each with a `refresh` effect, so the dashboard re-reads the instance once the
+call returns. The three that interrupt a running guest carry a confirmation,
+and `stop` is styled as the destructive one it is: it cuts power without asking
+the guest to close down.
+
 `ServiceAction` takes `action` as `start`, `stop`, `restart` or `shutdown`, and
 returns the state the guest settled in:
 

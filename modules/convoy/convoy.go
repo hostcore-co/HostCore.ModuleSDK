@@ -285,13 +285,41 @@ func ChangePassword() int32 {
 	return sdk.Success(sdk.NewJSON().Set("password", password).Build())
 }
 
-// ServiceAction is unsupported: Convoy keeps power control on its client API,
-// which answers to a customer's own token rather than the application token
-// this module holds. Customers power their servers from the Convoy panel.
+// ServiceAction signs the customer in to the Convoy panel. Convoy keeps power
+// control on its client API, which answers to a customer's own token rather
+// than the application token this module holds, so the panel is where a
+// customer starts and stops their server — and a single sign-on token is how
+// they get there without a password.
 //
 //go:wasmexport ServiceAction
 func ServiceAction() int32 {
-	return sdk.Fail("Convoy's application API has no power controls; customers start and stop their servers from the Convoy panel.", []byte(`{"code":"unsupported"}`))
+	args := sdk.GetArgs()
+
+	action := sdk.ToLower(sdk.TrimSpace(args.Get("action").String()))
+	if action != "sso" {
+		return sdk.Fail("Convoy's application API cannot "+action+" a server; that is done from the Convoy panel.", []byte(`{"code":"unsupported"}`))
+	}
+
+	c := newConvoy(args)
+	userID, msg := c.resolveUser(args.User())
+	if msg != "" {
+		return sdk.Fail(msg, nil)
+	}
+
+	resp := c.post("users/"+sdk.Itoa64(userID)+"/generate-sso-token", nil)
+	if !resp.OK {
+		return sdk.Fail("Failed to create a sign-in link"+withReason(convoyError(resp))+".", resp.Body)
+	}
+	token := sdk.GetBytes(resp.Body, "data.token").String()
+	if token == "" {
+		return sdk.Fail("Convoy returned no sign-in token.", resp.Body)
+	}
+
+	// The token is single-use and expires in about two minutes, so the URL is
+	// built fresh on every click rather than stored anywhere.
+	return sdk.Success(sdk.NewJSON().
+		Set("url", "https://"+args.Get("domain").String()+"/authenticate?token="+sdk.URLEncode(token)).
+		Build())
 }
 
 // settingsAction posts one of the suspend/unsuspend settings endpoints.

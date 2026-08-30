@@ -62,25 +62,30 @@ count does not release addresses.
 | `TerminateService` | `DELETE /servers/{uuid}` |
 | `UpdateService` | `GET /servers/{uuid}` then `PATCH /servers/{uuid}/settings/build` |
 | `ChangePassword` | `GET /users/{id}` then `PUT /users/{id}` |
-| `ServiceAction` | **unsupported** — see below |
+| `ServiceAction` | `sso` → `POST /users/{id}/generate-sso-token`; anything else **unsupported** |
 
 A UUID Convoy no longer holds terminates successfully; the server is gone either
 way.
 
-### Why `ServiceAction` is unsupported
+### Actions
 
-Convoy keeps power control on its **client** API, which answers to a customer's
-own token — not the application token this module holds. There is no
-start/stop/restart endpoint on the application API to call, so the function
-fails with `{"code": "unsupported"}` rather than pretending. Customers power
-their servers from the Convoy panel itself.
+The version declares one button, `sso`, with a `redirect` effect:
 
-Convoy does offer single sign-on
-(`POST /users/{id}/generate-sso-token` → `/authenticate?token=…`), which is how
-the Paymenter extension sends a customer into the panel. HostCore's service
-module surface has no function for handing back a login link, so this module
-does not expose it; adding one would let a Convoy customer reach their panel in
-one click.
+```json
+{"url": "https://convoy.example.com/authenticate?token=…"}
+```
+
+The token is single-use and expires in about two minutes, so the URL is built
+fresh on every click and never stored — the platform sends the response with
+`Cache-Control: no-store` for the same reason. The button stays offered on a
+**suspended** instance: signing in to look at a server is not the same as
+acting on one.
+
+Power actions are **not** offered. Convoy keeps those on its **client** API,
+which answers to a customer's own token rather than the application token this
+module holds, so `ServiceAction` fails any other value with
+`{"code": "unsupported"}` rather than pretending. The panel the `sso` button
+opens is where a customer starts and stops their server.
 
 ## E-mail matching
 
