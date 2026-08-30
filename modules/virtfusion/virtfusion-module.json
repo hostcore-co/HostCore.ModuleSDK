@@ -32,7 +32,70 @@
       ],
       "created_at": {
         "$date": "2026-07-19T00:00:00.000Z"
-      }
+      },
+      "actions": [
+        {
+          "order": 1,
+          "value": "sso",
+          "label": "Open VirtFusion panel",
+          "description": "Signs in to VirtFusion, where the console, backups and reinstall live.",
+          "confirm": "",
+          "effect": "redirect",
+          "style": "primary",
+          "statuses": [
+            "active",
+            "suspended"
+          ]
+        },
+        {
+          "order": 2,
+          "value": "boot",
+          "label": "Start",
+          "description": "Powers the server on.",
+          "confirm": "",
+          "effect": "refresh",
+          "style": "default",
+          "statuses": [
+            "active"
+          ]
+        },
+        {
+          "order": 3,
+          "value": "shutdown",
+          "label": "Shut down",
+          "description": "Asks the server to shut down. It may decline.",
+          "confirm": "Shut down the server? Anything running on it will stop.",
+          "effect": "refresh",
+          "style": "default",
+          "statuses": [
+            "active"
+          ]
+        },
+        {
+          "order": 4,
+          "value": "restart",
+          "label": "Restart",
+          "description": "Reboots the server.",
+          "confirm": "Restart the server? It will be unavailable while it reboots.",
+          "effect": "refresh",
+          "style": "default",
+          "statuses": [
+            "active"
+          ]
+        },
+        {
+          "order": 5,
+          "value": "poweroff",
+          "label": "Force stop",
+          "description": "Cuts power without asking the server to shut down.",
+          "confirm": "Force stop the server? This cuts power immediately and can lose unsaved data.",
+          "effect": "refresh",
+          "style": "danger",
+          "statuses": [
+            "active"
+          ]
+        }
+      ]
     }
   ],
   "created_at": {

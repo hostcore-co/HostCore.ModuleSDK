@@ -10,6 +10,7 @@ import (
 )
 
 type vzVPS struct {
+	Running   bool
 	Plan      string
 	Suspended bool
 }
@@ -20,6 +21,7 @@ type vzPanel struct {
 	lastAct  string
 	lastQ    url.Values
 	lastPass string
+	powered  []string
 }
 
 func newVZ() *vzPanel {
@@ -56,6 +58,12 @@ func (p *vzPanel) route(method, rawURL string, _ map[string]any) (int, string) {
 				s.Suspended = false
 				return 200, `{"done":1}`
 			}
+		case q.Get("action") != "":
+			if s := p.vpses[q.Get("vpsid")]; s != nil {
+				p.powered = append(p.powered, q.Get("action"))
+				s.Running = q.Get("action") != "stop"
+				return 200, `{"done":1}`
+			}
 		case q.Get("delete") != "":
 			if p.vpses[q.Get("delete")] != nil {
 				delete(p.vpses, q.Get("delete"))
@@ -86,6 +94,7 @@ func (p *vzPanel) route(method, rawURL string, _ map[string]any) (int, string) {
 func runVirtualizor(wasm []byte) {
 	vzLifecycle(wasm)
 	vzConfigOptions(wasm)
+	vzActions(wasm)
 }
 
 func vzArgs(serverID, extra string) string {
@@ -154,4 +163,33 @@ func vzConfigOptions(wasm []byte) {
 		}
 	}
 	assert("plan_id & os_id required", required["plan_id"] && required["os_id"], required)
+}
+
+func vzActions(wasm []byte) {
+	fmt.Println("── customer power actions")
+	p := newVZ()
+	plugin := loadPlugin(wasm, p.route)
+
+	deploy := call(plugin, "DeployService", vzArgs("", cfg("plan_id", "3")+","+cfg("os_id", "270")))
+	data, _ := deploy["data"].(map[string]any)
+	sid := str(data["server_id"])
+
+	withAction := func(a string) string {
+		return strings.Replace(vzArgs(sid, ""), `"service_id":"1024"`, `"service_id":"1024","action":"`+a+`"`, 1)
+	}
+
+	for _, verb := range []string{"start", "restart", "stop"} {
+		res := call(plugin, "ServiceAction", withAction(verb))
+		assert(verb, res["success"] == true, res)
+	}
+	assert("every verb reached the Admin API", strings.Join(p.powered, ",") == "start,restart,stop", p.powered)
+	assert("the VPS is left stopped", p.vpses[sid].Running == false, p.vpses[sid])
+
+	bad := call(plugin, "ServiceAction", withAction("reinstall"))
+	assert("an action Virtualizor has no endpoint for is refused", bad["success"] == false, bad)
+	badData, _ := bad["data"].(map[string]any)
+	assert("refusal carries the unsupported code", badData["code"] == "unsupported", bad["data"])
+
+	missing := strings.Replace(withAction("start"), `"server_id":"`+sid+`"`, `"server_id":""`, 1)
+	assert("an action without a VPS id is refused", call(plugin, "ServiceAction", missing)["success"] == false, nil)
 }

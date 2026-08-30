@@ -25,6 +25,21 @@ user to the store client.
 | `TerminateService` | `DELETE /servers/{id}` |
 | `UpdateService` | `PUT /servers/{id}/package/{package_id}` |
 | `ChangePassword` | `POST /users/{ext}/byExtRelation/resetPassword` |
+| `ServiceAction` | `POST /servers/{id}/power/{boot\|shutdown\|restart\|poweroff}`; `sso` → `POST /users/{uid}/serverAuthenticationTokens/{id}` |
+
+## Customer actions
+
+The version declares five buttons: the four power verbs with a `refresh`
+effect, and `sso` with a `redirect` effect.
+
+Single sign-on returns `data.authentication.endpoint_complete` — a **path**,
+not a URL. The module assembles it against the host the store configured rather
+than trusting anything in the response, so a compromised panel cannot point a
+customer somewhere else. The platform checks the destination host again before
+the browser follows it.
+
+The sign-in button stays offered on a **suspended** instance; the power verbs do
+not, since a customer must not be able to start their way out of a suspension.
 
 `ChangePassword` resets the panel password; VirtFusion **generates** the new
 value and the module returns it in the result — the endpoint cannot set a chosen

@@ -44,6 +44,12 @@ func (p *whmPanel) route(method, rawURL string, _ map[string]any) (int, string) 
 	switch fn {
 	case "version":
 		return ok(`{"version":"110.0.5"}`)
+	case "create_user_session":
+		if p.accounts[q.Get("user")] == nil {
+			return 200, `{"metadata":{"result":0,"reason":"account not found"}}`
+		}
+		return 200, fmt.Sprintf(`{"metadata":{"result":1,"reason":"OK"},"data":{"url":"https://whm.test:2083/cpsess1234/login/?session=%s","expires":1800}}`, q.Get("user"))
+
 	case "createacct":
 		user := q.Get("username")
 		if _, exists := p.accounts[user]; exists {
@@ -91,6 +97,7 @@ func (p *whmPanel) route(method, rawURL string, _ map[string]any) (int, string) 
 func runCpanel(wasm []byte) {
 	cpanelLifecycle(wasm)
 	cpanelConfigOptions(wasm)
+	cpanelActions(wasm)
 }
 
 func cpanelArgs(extra string) string {
@@ -153,4 +160,28 @@ func cpanelConfigOptions(wasm []byte) {
 		}
 	}
 	assert("domain & package required", required["domain"] && required["package"], required)
+}
+
+func cpanelActions(wasm []byte) {
+	fmt.Println("── single sign-on into cPanel")
+	p := newWHM()
+	plugin := loadPlugin(wasm, p.route)
+
+	base := cpanelArgs(cfg("domain", "acme.com") + "," + cfg("package", "starter"))
+	assert("deploy succeeds", call(plugin, "DeployService", base)["success"] == true, nil)
+
+	withAction := func(a string) string {
+		return strings.Replace(base, `"service_id":"1024"`, `"service_id":"1024","action":"`+a+`"`, 1)
+	}
+
+	sso := call(plugin, "ServiceAction", withAction("sso"))
+	assert("sso succeeds", sso["success"] == true, sso)
+	assert("WHM was asked for a user session", p.lastFunc == "create_user_session", p.lastFunc)
+	data, _ := sso["data"].(map[string]any)
+	assert("the one-time URL is returned", strings.HasPrefix(str(data["url"]), "https://whm.test:2083/cpsess1234/login/?session="), data["url"])
+
+	bad := call(plugin, "ServiceAction", withAction("restart"))
+	assert("WHM has no power actions to offer", bad["success"] == false, bad)
+	badData, _ := bad["data"].(map[string]any)
+	assert("refusal carries the unsupported code", badData["code"] == "unsupported", bad["data"])
 }

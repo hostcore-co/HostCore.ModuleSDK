@@ -72,6 +72,13 @@ func (p *pleskPanel) cli(utility string, params []string) (int, string) {
 	flag, target := params[0], params[1]
 
 	switch utility {
+	case "admin":
+		if flag == "--get-login-link" {
+			if p.customers[arg(params, "-user")] {
+				return 200, `{"code":0,"stdout":"https://plesk.test:8443/login?secret=abc123\n","stderr":""}`
+			}
+			return fail("customer does not exist")
+		}
 	case "customer":
 		switch flag {
 		case "--info":
@@ -132,6 +139,7 @@ func (p *pleskPanel) cli(utility string, params []string) (int, string) {
 func runPlesk(wasm []byte) {
 	pleskLifecycle(wasm)
 	pleskConfigOptions(wasm)
+	pleskActions(wasm)
 }
 
 func pleskArgs(extra string) string {
@@ -191,4 +199,29 @@ func pleskConfigOptions(wasm []byte) {
 		}
 	}
 	assert("domain & plan required", required["domain"] && required["plan"], required)
+}
+
+func pleskActions(wasm []byte) {
+	fmt.Println("── single sign-on into Plesk")
+	p := newPlesk()
+	plugin := loadPlugin(wasm, p.route)
+
+	base := pleskArgs(cfg("domain", "acme.com") + "," + cfg("plan", "Unlimited"))
+	deploy := call(plugin, "DeployService", base)
+	assert("deploy succeeds", deploy["success"] == true, deploy)
+
+	withAction := func(a string) string {
+		return strings.Replace(base, `"service_id":"1024"`, `"service_id":"1024","action":"`+a+`"`, 1)
+	}
+
+	sso := call(plugin, "ServiceAction", withAction("sso"))
+	assert("sso succeeds", sso["success"] == true, sso)
+	assert("the admin utility minted the link", strings.HasPrefix(p.lastCLI, "admin --get-login-link"), p.lastCLI)
+	data, _ := sso["data"].(map[string]any)
+	assert("the login URL is returned, trimmed", data["url"] == "https://plesk.test:8443/login?secret=abc123", data["url"])
+
+	bad := call(plugin, "ServiceAction", withAction("restart"))
+	assert("Plesk has no power actions to offer", bad["success"] == false, bad)
+	badData, _ := bad["data"].(map[string]any)
+	assert("refusal carries the unsupported code", badData["code"] == "unsupported", bad["data"])
 }

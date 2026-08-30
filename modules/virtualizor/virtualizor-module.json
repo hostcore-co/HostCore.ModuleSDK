@@ -41,7 +41,45 @@
       ],
       "created_at": {
         "$date": "2026-07-19T00:00:00.000Z"
-      }
+      },
+      "actions": [
+        {
+          "order": 1,
+          "value": "start",
+          "label": "Start",
+          "description": "Powers the VPS on.",
+          "confirm": "",
+          "effect": "refresh",
+          "style": "primary",
+          "statuses": [
+            "active"
+          ]
+        },
+        {
+          "order": 2,
+          "value": "restart",
+          "label": "Restart",
+          "description": "Reboots the VPS.",
+          "confirm": "Restart the VPS? It will be unavailable while it reboots.",
+          "effect": "refresh",
+          "style": "default",
+          "statuses": [
+            "active"
+          ]
+        },
+        {
+          "order": 3,
+          "value": "stop",
+          "label": "Stop",
+          "description": "Shuts the VPS down.",
+          "confirm": "Stop the VPS? Anything running on it will stop.",
+          "effect": "refresh",
+          "style": "danger",
+          "statuses": [
+            "active"
+          ]
+        }
+      ]
     }
   ],
   "created_at": {

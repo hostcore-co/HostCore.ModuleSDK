@@ -19,6 +19,12 @@ Go program compiled to a WASM reactor, a prebuilt `.wasm`, and a README.
 | [`namecheap`](namecheap) | Namecheap registrar | Domain module — register/transfer/renew/manage over the Namecheap XML API. |
 | [`enom`](enom) | Enom registrar | Domain module — register/transfer/renew/manage over the Enom reseller XML API. |
 
+Every service module declares the customer actions its version offers, and the
+ones that can carry them out export `ServiceAction`: power control where the
+module's credential reaches it (Proxmox, VirtFusion, Virtualizor), single
+sign-on where the panel mints a login (Convoy, VirtFusion, cPanel, Plesk), and
+`reinstall` for Pterodactyl, the one server action its application API exposes.
+
 The **service** modules export the same lifecycle surface —
 `TestModuleConnection`, `GetServiceConfigOptions`, `DeployService`,
 `SuspendService`, `UnsuspendService`, `UpdateService`, `TerminateService`,

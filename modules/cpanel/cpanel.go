@@ -246,6 +246,39 @@ func (w whm) call(function string, params [][2]string) sdk.HTTPResponse {
 	return sdk.HTTPGet(url, w.hdrs)
 }
 
+// ServiceAction signs the customer into cPanel. WHM mints a one-time URL for
+// the account, so the customer reaches their control panel without the store
+// handing out the account password.
+//
+//go:wasmexport ServiceAction
+func ServiceAction() int32 {
+	args := sdk.GetArgs()
+	action := sdk.ToLower(sdk.TrimSpace(args.Get("action").String()))
+	if action != "sso" {
+		return sdk.Fail("WHM cannot "+action+" an account.", []byte(`{"code":"unsupported"}`))
+	}
+
+	user := accountUser(args)
+	if user == "" {
+		return sdk.Fail("An account username is required.", nil)
+	}
+
+	w := newWHM(args)
+	resp := w.call("create_user_session", [][2]string{{"user", user}, {"service", "cpaneld"}})
+	if !resp.OK {
+		return sdk.Fail("Failed to create a sign-in link (status "+sdk.Itoa(resp.Status)+").", resp.Body)
+	}
+	if ok, reason := whmResult(resp); !ok {
+		return sdk.Fail("Failed to create a sign-in link"+withReason(reason)+".", resp.Body)
+	}
+
+	url := sdk.GetBytes(resp.Body, "data.url").String()
+	if url == "" {
+		return sdk.Fail("WHM returned no sign-in URL.", resp.Body)
+	}
+	return sdk.Success(sdk.NewJSON().Set("url", url).Build())
+}
+
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------

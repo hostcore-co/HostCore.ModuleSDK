@@ -263,6 +263,40 @@ func (v vz) call(act string, params [][2]string) sdk.HTTPResponse {
 	return sdk.HTTPGet(url, map[string]string{"Accept": "application/json"})
 }
 
+// ServiceAction runs a customer-initiated power change on the VPS. Virtualizor
+// takes these on the same Admin API the rest of the module drives.
+//
+//go:wasmexport ServiceAction
+func ServiceAction() int32 {
+	args := sdk.GetArgs()
+	action := sdk.ToLower(sdk.TrimSpace(args.Get("action").String()))
+	if !powerActions[action] {
+		return sdk.Fail("Virtualizor cannot "+action+" a VPS.", []byte(`{"code":"unsupported"}`))
+	}
+
+	id := serverID(args)
+	if id == "" {
+		return sdk.Fail("server_id is required.", nil)
+	}
+
+	v := newVZ(args)
+	resp := v.call("vs", [][2]string{{"action", action}, {"vpsid", id}})
+	if !resp.OK {
+		return sdk.Fail("Failed to "+action+" the VPS (status "+sdk.Itoa(resp.Status)+").", resp.Body)
+	}
+	if reason := vzError(resp); reason != "" {
+		return sdk.Fail("Failed to "+action+" the VPS"+withReason(reason)+".", resp.Body)
+	}
+	return sdk.Success(sdk.NewJSON().Set("action", action).Build())
+}
+
+// powerActions are the power changes the Admin API accepts under act=vs.
+var powerActions = map[string]bool{
+	"start":   true,
+	"stop":    true,
+	"restart": true,
+}
+
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
