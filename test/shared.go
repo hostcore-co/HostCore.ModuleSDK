@@ -42,6 +42,8 @@ func main() {
 		{"plesk", "../modules/plesk/plesk.wasm", runPlesk},
 		{"virtfusion", "../modules/virtfusion/virtfusion.wasm", runVirtfusion},
 		{"virtualizor", "../modules/virtualizor/virtualizor.wasm", runVirtualizor},
+		{"proxmox", "../modules/proxmox/proxmox.wasm", runProxmox},
+		{"convoy", "../modules/convoy/convoy.wasm", runConvoy},
 		{"smtp", "../modules/smtp/smtp.wasm", runSMTP},
 		{"sendgrid", "../modules/sendgrid/sendgrid.wasm", runSendgrid},
 		{"postmark", "../modules/postmark/postmark.wasm", runPostmark},

@@ -54,6 +54,14 @@ reason.
 Suspend, unsuspend, switch-plan, change-password and terminate all address the
 subscription by its domain, so they act on what deploy created.
 
+## Customer actions
+
+The version declares one button, `sso`, with a `redirect` effect. It runs
+`admin --get-login-link -user <customer>` through the same CLI gateway the rest
+of the module drives, and Plesk answers with a single-use login URL on stdout —
+which the general `cli` helper discards on success, so the sign-in path reads
+the response itself.
+
 ## Build & test
 
 ```sh

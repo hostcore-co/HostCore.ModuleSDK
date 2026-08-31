@@ -54,6 +54,16 @@ chars) plus digits from the service id for uniqueness. Suspend, unsuspend,
 terminate, update and change-password all derive the same username, so they act
 on the account deploy created.
 
+## Customer actions
+
+The version declares one button, `sso`, with a `redirect` effect. WHM's
+`create_user_session` mints a **one-time** URL into cPanel for the account, so a
+customer reaches their control panel without the store ever handing out the
+account password. cPanel destroys the session after 15 minutes of inactivity.
+
+The URL is used once and never stored; the platform sends the response with
+`Cache-Control: no-store` for the same reason.
+
 ## Build & test
 
 ```sh

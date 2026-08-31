@@ -244,6 +244,51 @@ func (p plesk) cli(utility string, params ...string) (int, string) {
 	return code, reason
 }
 
+// ServiceAction signs the customer into Plesk. The panel mints a single-use
+// login link for the owning customer, so the store never has to hand out the
+// account password.
+//
+//go:wasmexport ServiceAction
+func ServiceAction() int32 {
+	args := sdk.GetArgs()
+	action := sdk.ToLower(sdk.TrimSpace(args.Get("action").String()))
+	if action != "sso" {
+		return sdk.Fail("Plesk cannot "+action+" a subscription.", []byte(`{"code":"unsupported"}`))
+	}
+
+	p := newPlesk(args)
+	link, reason := p.loginLink(customerLogin(args))
+	if reason != "" {
+		return sdk.Fail("Failed to create a sign-in link"+withReason(reason)+".", nil)
+	}
+	return sdk.Success(sdk.NewJSON().Set("url", link).Build())
+}
+
+// loginLink asks Plesk for a single-use login URL for a customer. The utility
+// writes the URL to stdout, which the general cli helper discards on success
+// because every other call only cares whether it worked.
+func (p plesk) loginLink(customer string) (string, string) {
+	body := sdk.NewJSON().Set("params", sdk.JSONStringArray([]string{"--get-login-link", "-user", customer})).Build()
+
+	resp := sdk.HTTPPost(p.base+"cli/admin/call", p.hdrs, body)
+	if !resp.OK {
+		return "", "status " + sdk.Itoa(resp.Status)
+	}
+	if code := sdk.GetBytes(resp.Body, "code").Int(); code != 0 {
+		reason := sdk.TrimSpace(sdk.GetBytes(resp.Body, "stderr").String())
+		if reason == "" {
+			reason = "exit " + sdk.Itoa(code)
+		}
+		return "", reason
+	}
+
+	link := sdk.TrimSpace(sdk.GetBytes(resp.Body, "stdout").String())
+	if link == "" {
+		return "", "Plesk returned no login link"
+	}
+	return link, ""
+}
+
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------

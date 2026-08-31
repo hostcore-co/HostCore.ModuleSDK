@@ -52,6 +52,14 @@ as `server_id` on later lifecycle calls.
 | `space`, `ram`, `bandwidth`, `cores` | number | Optional plan overrides. |
 | `port` | number | Admin API port. Defaults to 4085. |
 
+## Customer actions
+
+The version declares `start`, `restart` and `stop`, all with a `refresh`
+effect, carried out through `act=vs&action=…&vpsid=…` on the same Admin API the
+rest of the module drives. `restart` and `stop` carry a confirmation.
+
+Virtualizor has no single sign-on on the Admin API, so there is no panel button.
+
 ## Build & test
 
 ```sh

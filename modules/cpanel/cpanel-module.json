@@ -41,7 +41,21 @@
       ],
       "created_at": {
         "$date": "2026-07-19T00:00:00.000Z"
-      }
+      },
+      "actions": [
+        {
+          "order": 1,
+          "value": "sso",
+          "label": "Open cPanel",
+          "description": "Signs in to cPanel without needing the account password.",
+          "confirm": "",
+          "effect": "redirect",
+          "style": "primary",
+          "statuses": [
+            "active"
+          ]
+        }
+      ]
     }
   ],
   "created_at": {

@@ -26,7 +26,7 @@ store event ──▶ Module Engine ──▶ WASM module (your code) ──▶ 
 | JSON reading | `Result` (typed accessors, `Get`, `ForEach`, `Array`), `Parse`, `ParseBytes`, `GetBytes` |
 | JSON writing | `NewJSON().Set(...).Build()`, `JSONInt64Array`, `JSONStringArray`, `JsonString` |
 | Conversions | `Itoa`, `Itoa64`, `Atoi`, `Atoi64`, `ParseFloat`, `ParseBool`, `GBToMB` |
-| Misc | `RandomString`, `TrimSpace`, `ParsePortRange` |
+| Misc | `RandomString`, `Password`, `TrimSpace`, `ParsePortRange`, `Sleep` |
 
 Everything is allocation-light and avoids `encoding/json`/`reflect` so modules
 stay small and fast.

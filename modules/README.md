@@ -11,16 +11,23 @@ Go program compiled to a WASM reactor, a prebuilt `.wasm`, and a README.
 | [`plesk`](plesk) | [Plesk](https://www.plesk.com) web hosting | Subscription provisioning via the REST API v2 CLI gateway. |
 | [`virtfusion`](virtfusion) | [VirtFusion](https://virtfusion.com) VPS/KVM panel | VPS provisioning via API v1; server-id round-trip; byExtRelation users. |
 | [`virtualizor`](virtualizor) | [Virtualizor](https://www.virtualizor.com) VPS panel | VPS provisioning via the Admin API (act-based single endpoint). |
+| [`proxmox`](proxmox) | [Proxmox VE](https://www.proxmox.com/en/proxmox-virtual-environment) hypervisor | QEMU/LXC provisioning via the API v2; token or ticket auth; background-task polling. |
+| [`convoy`](convoy) | [Convoy](https://convoypanel.com) KVM panel | KVM provisioning via the Application API v4; pool-drawn addresses; byte-scaled build limits. |
 | [`smtp`](smtp) | SMTP email | Email module — sends mail via the `smtp_send` host function. |
 | [`sendgrid`](sendgrid) | SendGrid email | Email module — sends via the SendGrid v3 HTTP API. |
 | [`postmark`](postmark) | Postmark email | Email module — sends via the Postmark HTTP API. |
 | [`namecheap`](namecheap) | Namecheap registrar | Domain module — register/transfer/renew/manage over the Namecheap XML API. |
 | [`enom`](enom) | Enom registrar | Domain module — register/transfer/renew/manage over the Enom reseller XML API. |
 
+Every service module declares the customer actions its version offers, and the
+ones that can carry them out export `ServiceAction`: power control where the
+module's credential reaches it (Proxmox, VirtFusion, Virtualizor), single
+sign-on where the panel mints a login (Convoy, VirtFusion, cPanel, Plesk).
+
 The **service** modules export the same lifecycle surface —
 `TestModuleConnection`, `GetServiceConfigOptions`, `DeployService`,
 `SuspendService`, `UnsuspendService`, `UpdateService`, `TerminateService`,
-`ChangePassword` (where the target supports it). The **email** modules (`smtp`,
+`ChangePassword` and `ServiceAction` (where the target supports it). The **email** modules (`smtp`,
 `sendgrid`, `postmark`) export `SendEmail`. The **domain** module (`namecheap`)
 exports the domain lifecycle (`RegisterDomain`, `TransferDomain`, `RenewDomain`,
 `GetDomainInfo`, …). All import only the [HostCore.ModuleSDK](..).

@@ -20,6 +20,7 @@ type vfPanel struct {
 	servers    map[string]*vfServer // server id -> server
 	nextServer int
 	lastCreate map[string]any
+	powered    []string
 }
 
 func newVF() *vfPanel {
@@ -86,6 +87,19 @@ func (p *vfPanel) route(method, rawURL string, body map[string]any) (int, string
 		}
 		return 404, `{"msg":"server not found"}`
 
+	case method == "POST" && len(seg) == 4 && seg[0] == "servers" && seg[2] == "power":
+		if p.servers[seg[1]] != nil {
+			p.powered = append(p.powered, seg[3])
+			return 200, `{"data":{"queued":true}}`
+		}
+		return 404, `{"msg":"server not found"}`
+
+	case method == "POST" && len(seg) == 4 && seg[0] == "users" && seg[2] == "serverAuthenticationTokens":
+		if p.servers[seg[3]] == nil {
+			return 404, `{"msg":"server not found"}`
+		}
+		return 200, `{"data":{"authentication":{"endpoint_complete":"/auth/serverToken/9/abc123"}}}`
+
 	case method == "DELETE" && len(seg) == 2 && seg[0] == "servers":
 		if p.servers[seg[1]] != nil {
 			delete(p.servers, seg[1])
@@ -102,6 +116,7 @@ func (p *vfPanel) route(method, rawURL string, body map[string]any) (int, string
 
 func runVirtfusion(wasm []byte) {
 	vfLifecycle(wasm)
+	vfActions(wasm)
 	vfConfigOptions(wasm)
 }
 
@@ -156,6 +171,37 @@ func vfLifecycle(wasm []byte) {
 	assert("terminate is idempotent (404 → success)", call(plugin, "TerminateService", lc)["success"] == true, nil)
 
 	assert("deploy without ids fails", call(plugin, "DeployService", vfArgs("", ""))["success"] == false, nil)
+}
+
+func vfActions(wasm []byte) {
+	fmt.Println("── power actions and single sign-on")
+	p := newVF()
+	plugin := loadPlugin(wasm, p.route)
+
+	deploy := call(plugin, "DeployService", vfArgs("", cfg("hypervisor_id", "2")+","+cfg("package_id", "7")))
+	data, _ := deploy["data"].(map[string]any)
+	sid := fmt.Sprintf("%d", toInt(data["server_id"]))
+
+	withAction := func(a string) string {
+		return strings.Replace(vfArgs(sid, ""), `"service_id":"1024"`, `"service_id":"1024","action":"`+a+`"`, 1)
+	}
+
+	for _, verb := range []string{"boot", "shutdown", "restart", "poweroff"} {
+		res := call(plugin, "ServiceAction", withAction(verb))
+		assert(verb, res["success"] == true, res)
+	}
+	assert("every power verb reached the panel", strings.Join(p.powered, ",") == "boot,shutdown,restart,poweroff", p.powered)
+
+	sso := call(plugin, "ServiceAction", withAction("sso"))
+	assert("sso succeeds", sso["success"] == true, sso)
+	ssoData, _ := sso["data"].(map[string]any)
+	assert("the sign-in URL is built against the configured host, not the response",
+		ssoData["url"] == "https://vf.test/auth/serverToken/9/abc123", ssoData["url"])
+
+	bad := call(plugin, "ServiceAction", withAction("selfdestruct"))
+	assert("an unknown action is refused", bad["success"] == false, bad)
+	badData, _ := bad["data"].(map[string]any)
+	assert("refusal carries the unsupported code", badData["code"] == "unsupported", bad["data"])
 }
 
 func vfConfigOptions(wasm []byte) {

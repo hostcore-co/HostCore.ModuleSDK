@@ -202,6 +202,64 @@ func ChangePassword() int32 {
 	return sdk.Success(sdk.NewJSON().Set("password", password).Build())
 }
 
+// ServiceAction runs a customer-initiated action: a power change, or the
+// single sign-on that drops the customer into VirtFusion's own panel for
+// everything this surface does not cover.
+//
+//go:wasmexport ServiceAction
+func ServiceAction() int32 {
+	args := sdk.GetArgs()
+	v := newVF(args)
+	action := sdk.ToLower(sdk.TrimSpace(args.Get("action").String()))
+
+	if action == "sso" {
+		return v.signIn(args)
+	}
+
+	if !powerActions[action] {
+		return sdk.Fail("VirtFusion cannot "+action+" a server.", []byte(`{"code":"unsupported"}`))
+	}
+	id := serverID(args)
+	if id == "" {
+		return sdk.Fail("server_id is required.", nil)
+	}
+
+	resp := v.post("servers/"+id+"/power/"+action, nil)
+	if !resp.OK {
+		return sdk.Fail("Failed to "+action+" the server"+withReason(vfError(resp))+".", resp.Body)
+	}
+	return sdk.Success(sdk.NewJSON().Set("action", action).Build())
+}
+
+// signIn mints a link that logs the customer into VirtFusion against this one
+// server. The panel returns the path alone, so the URL is assembled against the
+// host the store configured rather than anything the response carries.
+func (v vf) signIn(args sdk.Args) int32 {
+	id := serverID(args)
+	if id == "" {
+		return sdk.Fail("server_id is required.", nil)
+	}
+	userID, msg := v.resolveUser(args.User())
+	if msg != "" {
+		return sdk.Fail(msg, nil)
+	}
+
+	resp := v.post("users/"+sdk.Itoa64(userID)+"/serverAuthenticationTokens/"+id, nil)
+	if !resp.OK {
+		return sdk.Fail("Failed to create a sign-in link"+withReason(vfError(resp))+".", resp.Body)
+	}
+	endpoint := sdk.GetBytes(resp.Body, "data.authentication.endpoint_complete").String()
+	if endpoint == "" {
+		return sdk.Fail("VirtFusion returned no sign-in endpoint.", resp.Body)
+	}
+	if endpoint[0] != '/' {
+		endpoint = "/" + endpoint
+	}
+	return sdk.Success(sdk.NewJSON().
+		Set("url", "https://"+args.Get("domain").String()+endpoint).
+		Build())
+}
+
 // serverAction performs a suspend/unsuspend POST for the current service.
 func serverAction(action, verb string) int32 {
 	args := sdk.GetArgs()
@@ -215,6 +273,15 @@ func serverAction(action, verb string) int32 {
 		return sdk.Fail("Failed to "+verb+" the server"+withReason(vfError(resp))+".", resp.Body)
 	}
 	return sdk.Success(nil)
+}
+
+// powerActions are the power changes VirtFusion accepts on a server, named as
+// its API names them.
+var powerActions = map[string]bool{
+	"boot":     true,
+	"shutdown": true,
+	"restart":  true,
+	"poweroff": true,
 }
 
 // -----------------------------------------------------------------------------
