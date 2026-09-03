@@ -96,6 +96,7 @@ func (p *whmPanel) route(method, rawURL string, _ map[string]any) (int, string) 
 
 func runCpanel(wasm []byte) {
 	cpanelLifecycle(wasm)
+	cpanelImported(wasm)
 	cpanelConfigOptions(wasm)
 	cpanelActions(wasm)
 }
@@ -143,6 +144,32 @@ func cpanelLifecycle(wasm []byte) {
 	assert("account removed", p.accounts[uname] == nil, nil)
 
 	assert("suspend missing account fails", call(plugin, "SuspendService", args)["success"] == false, nil)
+}
+
+func cpanelImported(wasm []byte) {
+	fmt.Println("── imported account answers to the name the source system gave it")
+	p := newWHM()
+	plugin := loadPlugin(wasm, p.route)
+	p.accounts["oldhost9"] = &whmAccount{Domain: "acme.com", Plan: "starter"}
+
+	bound := func(extra string) string {
+		return strings.Replace(cpanelArgs(extra),
+			`"service_id":"1024"`, `"service_id":"1024","remote_id":"oldhost9"`, 1)
+	}
+	args := bound(cfg("domain", "acme.com"))
+
+	assert("suspend by recovered account name", call(plugin, "SuspendService", args)["success"] == true, nil)
+	assert("imported account suspended", p.accounts["oldhost9"].Suspended == true, nil)
+	assert("unsuspend by recovered account name", call(plugin, "UnsuspendService", args)["success"] == true, nil)
+	assert("imported account unsuspended", p.accounts["oldhost9"].Suspended == false, nil)
+
+	p.accounts["pinned7"] = &whmAccount{Domain: "acme.com", Plan: "starter"}
+	pinned := bound(strings.Join([]string{cfg("domain", "acme.com"), cfg("account_username", "pinned7")}, ","))
+	assert("the operator's pinned username still wins", call(plugin, "SuspendService", pinned)["success"] == true, nil)
+	assert("pinned account suspended", p.accounts["pinned7"].Suspended == true, nil)
+
+	assert("terminate by recovered account name", call(plugin, "TerminateService", args)["success"] == true, nil)
+	assert("imported account removed", p.accounts["oldhost9"] == nil, nil)
 }
 
 func cpanelConfigOptions(wasm []byte) {

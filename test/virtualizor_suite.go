@@ -93,6 +93,7 @@ func (p *vzPanel) route(method, rawURL string, _ map[string]any) (int, string) {
 
 func runVirtualizor(wasm []byte) {
 	vzLifecycle(wasm)
+	vzRemoteBinding(wasm)
 	vzConfigOptions(wasm)
 	vzActions(wasm)
 }
@@ -146,6 +147,22 @@ func vzLifecycle(wasm []byte) {
 	assert("terminate", call(plugin, "TerminateService", lc)["success"] == true, nil)
 	assert("vps removed", p.vpses[sid] == nil, nil)
 	assert("terminate missing vps fails", call(plugin, "TerminateService", lc)["success"] == false, nil)
+}
+
+func vzRemoteBinding(wasm []byte) {
+	fmt.Println("── the VPS answers to the binding the platform replays")
+	p := newVZ()
+	plugin := loadPlugin(wasm, p.route)
+	p.vpses["9001"] = &vzVPS{Plan: "3"}
+
+	args := strings.Replace(vzArgs("", ""), `"service_id":"1024"`, `"service_id":"1024","remote_id":"9001"`, 1)
+
+	assert("suspend by remote binding", call(plugin, "SuspendService", args)["success"] == true, nil)
+	assert("vps suspended", p.vpses["9001"].Suspended == true, nil)
+	assert("unsuspend by remote binding", call(plugin, "UnsuspendService", args)["success"] == true, nil)
+	assert("vps unsuspended", p.vpses["9001"].Suspended == false, nil)
+	assert("terminate by remote binding", call(plugin, "TerminateService", args)["success"] == true, nil)
+	assert("vps removed", p.vpses["9001"] == nil, nil)
 }
 
 func vzConfigOptions(wasm []byte) {

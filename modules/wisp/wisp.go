@@ -26,6 +26,9 @@
 //	  "domain":      "panel.example.com",   // panel host (no scheme)
 //	  "api_key":     "wisp_xxx",            // WISP application API key
 //	  "service_id":  "1024",                // store service id → panel external_id
+//	  "remote_id":   "37",                  // panel server id, on an imported service
+//	  "remote_uuid": "d3f1-…",              // panel server uuid, on an imported service
+//	  "external_id": "1287",                // service id in the system it was imported from
 //	  "password":    "optional-secret",     // desired panel password (deploy / change-password)
 //	  "user":        { "id", "email", "first_name", "last_name" },
 //	  "service_config": [ { "key": "...", "value": "..." }, ... ]
@@ -117,7 +120,7 @@ func DeployService() int32 {
 
 	externalID := serviceID(args)
 
-	if existing := p.get("servers/external/" + externalID); existing.Status == 200 {
+	if _, msg := p.resolveServer(args); msg == "" {
 		return sdk.Fail("A server already exists for this service.", nil)
 	}
 
@@ -196,12 +199,12 @@ func TerminateService() int32 {
 	args := sdk.GetArgs()
 	p := newPanel(args)
 
-	id, msg := p.serverIDByExternal(serviceID(args))
+	srv, msg := p.resolveServer(args)
 	if msg != "" {
 		return sdk.Fail(msg, nil)
 	}
 
-	resp := p.delete("servers/" + id)
+	resp := p.delete("servers/" + srv.Get("id").String())
 	if resp.Status != 204 {
 		return sdk.Fail("Failed to terminate the server (status "+sdk.Itoa(resp.Status)+").", resp.Body)
 	}
@@ -222,11 +225,10 @@ func UpdateService() int32 {
 		return sdk.Fail(msg, nil)
 	}
 
-	server := p.get("servers/external/" + serviceID(args))
-	if server.Status != 200 {
-		return sdk.Fail("Failed to locate the server to update (status "+sdk.Itoa(server.Status)+").", server.Body)
+	srv, msg := p.resolveServer(args)
+	if msg != "" {
+		return sdk.Fail(msg, nil)
 	}
-	srv := sdk.GetBytes(server.Body, "attributes")
 	serverID := srv.Get("id").String()
 
 	egg := p.get("eggs/" + cfg.eggID + "?include=variables")
@@ -322,12 +324,12 @@ func powerLifecycle(action, verb string) int32 {
 	args := sdk.GetArgs()
 	p := newPanel(args)
 
-	id, msg := p.serverIDByExternal(serviceID(args))
+	srv, msg := p.resolveServer(args)
 	if msg != "" {
 		return sdk.Fail(msg, nil)
 	}
 
-	resp := p.post("servers/"+id+"/"+action, nil)
+	resp := p.post("servers/"+srv.Get("id").String()+"/"+action, nil)
 	if resp.Status != 204 {
 		return sdk.Fail("Failed to "+verb+" the server (status "+sdk.Itoa(resp.Status)+").", resp.Body)
 	}
@@ -369,18 +371,80 @@ func (p panel) delete(endpoint string) sdk.HTTPResponse {
 	return sdk.HTTPDelete(p.base+endpoint, p.hdrs)
 }
 
-// serverIDByExternal resolves a panel server id from a store service id. The id
-// is returned as a string to preserve WISP's opaque identifiers. The returned
-// message is non-empty on error.
-func (p panel) serverIDByExternal(externalID string) (string, string) {
-	resp := p.get("servers/external/" + externalID)
-	if resp.Status == 404 {
-		return "", "No server exists for this service."
+// resolveServer returns the panel attributes of the server bound to this
+// service. A server this module deployed carries the store service id as its
+// panel external_id, but an imported service was created on the panel by
+// something else: it answers only to the binding the migration recovered from
+// the source panel, or to the id it held in the system it came from. The
+// returned message is non-empty on error.
+func (p panel) resolveServer(args sdk.Args) (sdk.Result, string) {
+	failed := 0
+	for _, lookup := range serverLookups(args) {
+		resp := p.get(lookup.endpoint)
+		if resp.Status == 200 {
+			if attr := serverAttributes(resp.Body, lookup.uuid); attr.Get("id").String() != "" {
+				return attr, ""
+			}
+			continue
+		}
+		if resp.Status != 404 {
+			failed = resp.Status
+		}
 	}
-	if resp.Status != 200 {
-		return "", "Failed to locate the server (status " + sdk.Itoa(resp.Status) + ")."
+	if failed != 0 {
+		return sdk.Result{}, "Failed to locate the server (status " + sdk.Itoa(failed) + ")."
 	}
-	return sdk.GetBytes(resp.Body, "attributes.id").String(), ""
+	return sdk.Result{}, "No server exists for this service."
+}
+
+// serverLookup is one way to address a server: the endpoint to read, and the
+// uuid a listing must match when the endpoint is a search rather than a direct
+// read.
+type serverLookup struct {
+	endpoint string
+	uuid     string
+}
+
+// serverLookups lists the ways this service's server can be addressed, most
+// specific first: the panel's own ids, then the external ids a server may have
+// been stamped with.
+func serverLookups(args sdk.Args) []serverLookup {
+	out := make([]serverLookup, 0)
+
+	if id := sdk.TrimSpace(args.Get("remote_id").String()); id != "" {
+		out = append(out, serverLookup{endpoint: "servers/" + sdk.URLEncode(id)})
+	}
+	if uuid := sdk.TrimSpace(args.Get("remote_uuid").String()); uuid != "" {
+		out = append(out, serverLookup{endpoint: "servers?search=" + sdk.URLEncode(uuid), uuid: uuid})
+	}
+
+	svcID := serviceID(args)
+	if svcID != "" {
+		out = append(out, serverLookup{endpoint: "servers/external/" + sdk.URLEncode(svcID)})
+	}
+	if ext := sdk.TrimSpace(args.Get("external_id").String()); ext != "" && ext != svcID {
+		out = append(out, serverLookup{endpoint: "servers/external/" + sdk.URLEncode(ext)})
+	}
+
+	return out
+}
+
+// serverAttributes reads the server out of a lookup response: the resource
+// itself for a direct or external read, or the searched-for uuid's entry in a
+// listing.
+func serverAttributes(body []byte, uuid string) sdk.Result {
+	if uuid == "" {
+		return sdk.GetBytes(body, "attributes")
+	}
+	var found sdk.Result
+	sdk.GetBytes(body, "data").ForEach(func(_, item sdk.Result) bool {
+		if item.Get("attributes.uuid").String() == uuid {
+			found = item.Get("attributes")
+			return false
+		}
+		return true
+	})
+	return found
 }
 
 // getOrCreateUser resolves the WISP user for a store user, creating one if

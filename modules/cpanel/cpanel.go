@@ -313,11 +313,16 @@ func serviceID(args sdk.Args) string {
 	return args.User().ID
 }
 
-// accountUser resolves the cPanel account username for lifecycle calls, using
-// the explicit override when set and otherwise deriving it the same way deploy
-// does, so both agree.
+// accountUser resolves the cPanel account username for lifecycle calls: the
+// explicit override first, then the account the platform replays for the
+// instance — an imported account was named by the system it came from, not by
+// this one — and otherwise the name derived the same way deploy derives it, so
+// both agree.
 func accountUser(args sdk.Args) string {
 	if u := cfgStr(args, "account_username"); u != "" {
+		return u
+	}
+	if u := sdk.TrimSpace(args.Get("remote_id").String()); u != "" {
 		return u
 	}
 	return deriveUsername(cfgStr(args, "domain"), serviceID(args))

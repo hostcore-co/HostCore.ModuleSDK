@@ -74,6 +74,10 @@ func (p *wispPanel) route(method, rawURL string, body map[string]any) (int, stri
 		return p.egg()
 	case method == "GET" && strings.HasPrefix(ep, "servers/external/"):
 		return p.serverExternal(pathHead(strings.TrimPrefix(ep, "servers/external/")))
+	case method == "GET" && ep == "servers":
+		return p.serversBySearch(q.Get("search"))
+	case method == "GET" && strings.HasPrefix(ep, "servers/"):
+		return p.serverByID(wispServerID(ep))
 	case method == "POST" && ep == "servers":
 		return p.createServer(body)
 	case method == "PATCH" && strings.HasSuffix(ep, "/startup"):
@@ -154,6 +158,37 @@ func (p *wispPanel) serverExternal(ext string) (int, string) {
 	return 404, `{}`
 }
 
+func (p *wispPanel) serversBySearch(term string) (int, string) {
+	for _, s := range p.byID {
+		if s.UUID == term {
+			return 200, fmt.Sprintf(`{"data":[%s]}`, p.serverJSON(s))
+		}
+	}
+	return 200, `{"data":[]}`
+}
+
+func (p *wispPanel) serverByID(id string) (int, string) {
+	s := p.byID[id]
+	if s == nil {
+		return 404, `{}`
+	}
+	return 200, p.serverJSON(s)
+}
+
+// seedServer registers a server this module never deployed: an imported service
+// whose panel record carries the external id it held in the source system.
+func (p *wispPanel) seedServer(externalID string) *wispServer {
+	sid := fmt.Sprintf("srv_%d", p.nextSrv)
+	p.nextSrv++
+	s := &wispServer{
+		ID: sid, UUID: fmt.Sprintf("uuid-%s", sid), Identifier: fmt.Sprintf("id%s", sid),
+		ExternalID: externalID, Allocation: "alloc_1", Environment: map[string]string{},
+	}
+	p.servers[externalID] = s
+	p.byID[sid] = s
+	return s
+}
+
 func (p *wispPanel) createServer(body map[string]any) (int, string) {
 	p.lastCreate = body
 	sid := fmt.Sprintf("srv_%d", p.nextSrv)
@@ -213,6 +248,7 @@ func runWisp(wasm []byte) {
 	wispDeploy(wasm)
 	wispStringID(wasm)
 	wispLifecycle(wasm)
+	wispImported(wasm)
 	wispConfigOptions(wasm)
 }
 
@@ -308,6 +344,33 @@ func wispLifecycle(wasm []byte) {
 
 	assert("terminate", call(plugin, "TerminateService", args)["success"] == true, nil)
 	assert("server removed", p.servers["1024"] == nil, nil)
+}
+
+func wispImported(wasm []byte) {
+	fmt.Println("── imported server resolves by remote binding or source id")
+	p := newWisp()
+	plugin := loadPlugin(wasm, p.route)
+	srv := p.seedServer("7788")
+
+	args := func(identity string) string {
+		return `{"domain":"panel.test","api_key":"key_test","service_id":"1024",` + identity +
+			`"user":{"id":"77","email":"Alice@Example.com","first_name":"Alice","last_name":"Ng"},
+			"service_config":[]}`
+	}
+
+	assert("suspend by source id", call(plugin, "SuspendService", args(`"external_id":"7788",`))["success"] == true, nil)
+	assert("imported server marked suspended", srv.Suspended == true, nil)
+
+	assert("unsuspend by panel server id", call(plugin, "UnsuspendService", args(fmt.Sprintf(`"remote_id":%q,`, srv.ID)))["success"] == true, nil)
+	assert("imported server marked unsuspended", srv.Suspended == false, nil)
+
+	assert("suspend by panel uuid", call(plugin, "SuspendService", args(fmt.Sprintf(`"remote_uuid":%q,`, srv.UUID)))["success"] == true, nil)
+	assert("imported server marked suspended again", srv.Suspended == true, nil)
+
+	assert("unsuspend without any binding fails gracefully", call(plugin, "UnsuspendService", args(``))["success"] == false, nil)
+
+	assert("terminate by source id", call(plugin, "TerminateService", args(`"external_id":"7788",`))["success"] == true, nil)
+	assert("imported server removed", p.servers["7788"] == nil, nil)
 }
 
 func wispConfigOptions(wasm []byte) {

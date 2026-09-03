@@ -116,6 +116,7 @@ func (p *vfPanel) route(method, rawURL string, body map[string]any) (int, string
 
 func runVirtfusion(wasm []byte) {
 	vfLifecycle(wasm)
+	vfRemoteBinding(wasm)
 	vfActions(wasm)
 	vfConfigOptions(wasm)
 }
@@ -202,6 +203,22 @@ func vfActions(wasm []byte) {
 	assert("an unknown action is refused", bad["success"] == false, bad)
 	badData, _ := bad["data"].(map[string]any)
 	assert("refusal carries the unsupported code", badData["code"] == "unsupported", bad["data"])
+}
+
+func vfRemoteBinding(wasm []byte) {
+	fmt.Println("── the server answers to the binding the platform replays")
+	p := newVF()
+	plugin := loadPlugin(wasm, p.route)
+	p.servers["9001"] = &vfServer{Package: 7}
+
+	args := strings.Replace(vfArgs("", ""), `"service_id":"1024"`, `"service_id":"1024","remote_id":"9001"`, 1)
+
+	assert("suspend by remote binding", call(plugin, "SuspendService", args)["success"] == true, nil)
+	assert("server suspended", p.servers["9001"].Suspended == true, nil)
+	assert("unsuspend by remote binding", call(plugin, "UnsuspendService", args)["success"] == true, nil)
+	assert("server unsuspended", p.servers["9001"].Suspended == false, nil)
+	assert("terminate by remote binding", call(plugin, "TerminateService", args)["success"] == true, nil)
+	assert("server removed", p.servers["9001"] == nil, nil)
 }
 
 func vfConfigOptions(wasm []byte) {

@@ -371,6 +371,14 @@ func cfgStr(args sdk.Args, key string) string {
 	return sdk.TrimSpace(args.ServiceConfig(key))
 }
 
+// serverID resolves the server the call addresses: the binding the platform
+// replays for the instance, which for an imported service is the id it already
+// held on the panel, and otherwise the id the deploy reported.
 func serverID(args sdk.Args) string {
-	return sdk.TrimSpace(args.Get("server_id").String())
+	for _, key := range []string{"remote_id", "server_id"} {
+		if id := sdk.TrimSpace(args.Get(key).String()); id != "" {
+			return id
+		}
+	}
+	return ""
 }
