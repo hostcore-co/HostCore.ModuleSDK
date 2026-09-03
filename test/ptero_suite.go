@@ -105,6 +105,10 @@ func (p *pteroPanel) route(method, rawURL string, body map[string]any) (int, str
 		return p.egg()
 	case method == "GET" && strings.HasPrefix(ep, "servers/external/"):
 		return p.serverExternal(pathHead(strings.TrimPrefix(ep, "servers/external/")))
+	case method == "GET" && ep == "servers":
+		return p.serversByUUID(q.Get("filter[uuid]"))
+	case method == "GET" && strings.HasPrefix(ep, "servers/"):
+		return p.serverByID(pteroServerID(ep))
 	case method == "POST" && ep == "servers":
 		return p.createServer(body)
 	case method == "PATCH" && strings.Contains(ep, "/build"):
@@ -188,6 +192,38 @@ func (p *pteroPanel) serverExternal(ext string) (int, string) {
 		return 200, p.serverJSON(s)
 	}
 	return 404, `{}`
+}
+
+func (p *pteroPanel) serversByUUID(uuid string) (int, string) {
+	for _, s := range p.byID {
+		if s.UUID == uuid {
+			return 200, fmt.Sprintf(`{"meta":{"pagination":{"total":1}},"data":[%s]}`, p.serverJSON(s))
+		}
+	}
+	return 200, `{"meta":{"pagination":{"total":0}},"data":[]}`
+}
+
+func (p *pteroPanel) serverByID(sid int64) (int, string) {
+	s := p.byID[sid]
+	if s == nil {
+		return 404, `{}`
+	}
+	return 200, p.serverJSON(s)
+}
+
+// seedServer registers a server this module never deployed: an imported service
+// whose panel record carries the external id it held in the source system.
+func (p *pteroPanel) seedServer(externalID string) *pteroServer {
+	sid := p.nextServer
+	p.nextServer++
+	s := &pteroServer{
+		ID: sid, UUID: fmt.Sprintf("uuid-%d", sid), Identifier: fmt.Sprintf("id%d", sid),
+		ExternalID: externalID, Node: 1, Allocation: 1, AllocIDs: []int64{1},
+		Environment: map[string]string{"MAX_PLAYERS": "20"},
+	}
+	p.servers[externalID] = s
+	p.byID[sid] = s
+	return s
 }
 
 func (p *pteroPanel) createServer(body map[string]any) (int, string) {
@@ -360,6 +396,7 @@ func pteroEnv(s *pteroServer) any {
 func runPtero(wasm []byte) {
 	pteroMultiPort(wasm)
 	pteroLifecycle(wasm)
+	pteroImported(wasm)
 	pteroDedicatedPort(wasm)
 	pteroConfigOptions(wasm)
 }
@@ -434,6 +471,33 @@ func pteroLifecycle(wasm []byte) {
 	assert("terminate", call(plugin, "TerminateService", args)["success"] == true, nil)
 	assert("server removed", p.servers["1024"] == nil, nil)
 	assert("suspend missing server fails gracefully", call(plugin, "SuspendService", args)["success"] == false, nil)
+}
+
+func pteroImported(wasm []byte) {
+	fmt.Println("── imported server resolves by remote binding or source id")
+	p := newPtero()
+	plugin := loadPlugin(wasm, p.route)
+	srv := p.seedServer("7788")
+
+	args := func(identity string) string {
+		return `{"domain":"panel.test","api_key":"key_test","service_id":"1024",` + identity +
+			`"user":{"id":"77","email":"Alice@Example.com","first_name":"Alice","last_name":"Ng"},
+			"service_config":[]}`
+	}
+
+	assert("suspend by source id", call(plugin, "SuspendService", args(`"external_id":"7788",`))["success"] == true, nil)
+	assert("imported server marked suspended", srv.Suspended == true, nil)
+
+	assert("unsuspend by panel server id", call(plugin, "UnsuspendService", args(fmt.Sprintf(`"remote_id":"%d",`, srv.ID)))["success"] == true, nil)
+	assert("imported server marked unsuspended", srv.Suspended == false, nil)
+
+	assert("suspend by panel uuid", call(plugin, "SuspendService", args(fmt.Sprintf(`"remote_uuid":%q,`, srv.UUID)))["success"] == true, nil)
+	assert("imported server marked suspended again", srv.Suspended == true, nil)
+
+	assert("unsuspend without any binding fails gracefully", call(plugin, "UnsuspendService", args(``))["success"] == false, nil)
+
+	assert("terminate by source id", call(plugin, "TerminateService", args(`"external_id":"7788",`))["success"] == true, nil)
+	assert("imported server removed", p.servers["7788"] == nil, nil)
 }
 
 func pteroDedicatedPort(wasm []byte) {

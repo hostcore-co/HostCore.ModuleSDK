@@ -23,6 +23,9 @@
 //	  "domain":      "panel.example.com",   // panel host (no scheme)
 //	  "api_key":     "ptla_xxx",            // Pterodactyl *application* API key
 //	  "service_id":  "1024",                // store service id → panel external_id
+//	  "remote_id":   "37",                  // panel server id, on an imported service
+//	  "remote_uuid": "d3f1-…",              // panel server uuid, on an imported service
+//	  "external_id": "1287",                // service id in the system it was imported from
 //	  "password":    "optional-secret",     // desired panel password (deploy / change-password)
 //	  "user":        { "id", "email", "first_name", "last_name" },
 //	  "service_config": [ { "key": "...", "value": "..." }, ... ]
@@ -121,7 +124,7 @@ func DeployService() int32 {
 
 	externalID := serviceID(args)
 
-	if existing := p.get("servers/external/" + externalID); existing.Status == 200 {
+	if _, msg := p.resolveServer(args); msg == "" {
 		return sdk.Fail("A server already exists for this service.", nil)
 	}
 
@@ -247,12 +250,12 @@ func TerminateService() int32 {
 	args := sdk.GetArgs()
 	p := newPanel(args)
 
-	id, msg := p.serverIDByExternal(serviceID(args))
+	srv, msg := p.resolveServer(args)
 	if msg != "" {
 		return sdk.Fail(msg, nil)
 	}
 
-	resp := p.delete("servers/" + sdk.Itoa64(id))
+	resp := p.delete("servers/" + sdk.Itoa64(srv.Get("id").Int64()))
 	if resp.Status != 204 {
 		return sdk.Fail("Failed to terminate the server (status "+sdk.Itoa(resp.Status)+").", resp.Body)
 	}
@@ -271,11 +274,10 @@ func UpdateService() int32 {
 		return sdk.Fail(msg, nil)
 	}
 
-	server := p.get("servers/external/" + serviceID(args) + "?include=allocations")
-	if server.Status != 200 {
-		return sdk.Fail("Failed to locate the server to update (status "+sdk.Itoa(server.Status)+").", server.Body)
+	srv, msg := p.resolveServer(args)
+	if msg != "" {
+		return sdk.Fail(msg, nil)
 	}
-	srv := sdk.GetBytes(server.Body, "attributes")
 	serverID := srv.Get("id").Int64()
 	currentAlloc := srv.Get("allocation").Int64()
 
@@ -366,12 +368,12 @@ func powerLifecycle(action, verb string) int32 {
 	args := sdk.GetArgs()
 	p := newPanel(args)
 
-	id, msg := p.serverIDByExternal(serviceID(args))
+	srv, msg := p.resolveServer(args)
 	if msg != "" {
 		return sdk.Fail(msg, nil)
 	}
 
-	resp := p.post("servers/"+sdk.Itoa64(id)+"/"+action, nil)
+	resp := p.post("servers/"+sdk.Itoa64(srv.Get("id").Int64())+"/"+action, nil)
 	if resp.Status != 204 {
 		return sdk.Fail("Failed to "+verb+" the server (status "+sdk.Itoa(resp.Status)+").", resp.Body)
 	}
@@ -413,17 +415,83 @@ func (p panel) delete(endpoint string) sdk.HTTPResponse {
 	return sdk.HTTPDelete(p.base+endpoint, p.hdrs)
 }
 
-// serverIDByExternal resolves a panel server id from a store service id. The
+// resolveServer returns the panel attributes of the server bound to this
+// service. A server this module deployed carries the store service id as its
+// panel external_id, but an imported service was created on the panel by
+// something else: it answers only to the binding the migration recovered from
+// the source panel, or to the id it held in the system it came from. The
 // returned message is non-empty on error.
-func (p panel) serverIDByExternal(externalID string) (int64, string) {
-	resp := p.get("servers/external/" + externalID)
-	if resp.Status == 404 {
-		return 0, "No server exists for this service."
+func (p panel) resolveServer(args sdk.Args) (sdk.Result, string) {
+	failed := 0
+	for _, endpoint := range serverEndpoints(args) {
+		resp := p.get(endpoint)
+		if resp.Status == 200 {
+			if attr := serverAttributes(resp.Body); attr.Get("id").Int64() != 0 {
+				return attr, ""
+			}
+			continue
+		}
+		if resp.Status != 404 {
+			failed = resp.Status
+		}
 	}
-	if resp.Status != 200 {
-		return 0, "Failed to locate the server (status " + sdk.Itoa(resp.Status) + ")."
+	if failed != 0 {
+		return sdk.Result{}, "Failed to locate the server (status " + sdk.Itoa(failed) + ")."
 	}
-	return sdk.GetBytes(resp.Body, "attributes.id").Int64(), ""
+	return sdk.Result{}, "No server exists for this service."
+}
+
+// serverEndpoints lists the panel lookups that can find this service's server,
+// most specific first: the panel's own ids, then the external ids a server may
+// have been stamped with.
+func serverEndpoints(args sdk.Args) []string {
+	out := make([]string, 0)
+
+	remoteID := sdk.TrimSpace(args.Get("remote_id").String())
+	if isPanelID(remoteID) {
+		out = append(out, "servers/"+remoteID)
+	}
+
+	uuid := sdk.TrimSpace(args.Get("remote_uuid").String())
+	if uuid == "" && !isPanelID(remoteID) {
+		uuid = remoteID
+	}
+	if uuid != "" {
+		out = append(out, "servers?filter[uuid]="+sdk.URLEncode(uuid))
+	}
+
+	svcID := serviceID(args)
+	if svcID != "" {
+		out = append(out, "servers/external/"+sdk.URLEncode(svcID))
+	}
+	if ext := sdk.TrimSpace(args.Get("external_id").String()); ext != "" && ext != svcID {
+		out = append(out, "servers/external/"+sdk.URLEncode(ext))
+	}
+
+	return out
+}
+
+// serverAttributes reads the server out of a lookup response, which is a single
+// resource for a direct or external lookup and a list for a filter query.
+func serverAttributes(body []byte) sdk.Result {
+	if listed := sdk.GetBytes(body, "data.0.attributes"); listed.Exists() {
+		return listed
+	}
+	return sdk.GetBytes(body, "attributes")
+}
+
+// isPanelID reports whether id addresses a server by the panel's own numeric
+// primary key, as opposed to a uuid.
+func isPanelID(id string) bool {
+	if id == "" {
+		return false
+	}
+	for i := 0; i < len(id); i++ {
+		if id[i] < '0' || id[i] > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // getOrCreateUser resolves the Pterodactyl user for a store user, creating one
